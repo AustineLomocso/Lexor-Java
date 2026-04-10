@@ -1,0 +1,8 @@
+%% hello world sample
+SCRIPT AREA
+START SCRIPT
+DECLARE INT x=4
+DECLARE BOOL t="TRUE"
+DECLARE CHAR a_1='c'
+PRINT: x & t & [#] & $ & a_1
+END SCRIPT
