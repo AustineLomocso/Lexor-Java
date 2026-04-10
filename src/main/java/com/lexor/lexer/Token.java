@@ -13,15 +13,12 @@ public class Token {
     public TokenType getType() {
         return type;
     }
-
     public String getLexeme() {
         return lexeme;
     }
-
     public int getLine() {
         return line;
     }
-
     public int getColumn() {
         return column;
     }

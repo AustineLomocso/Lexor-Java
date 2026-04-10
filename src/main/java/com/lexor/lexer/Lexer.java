@@ -1,10 +1,11 @@
 package com.lexor.lexer;
 
+import com.lexor.lexer.Exceptions.LexorException;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,7 +64,6 @@ import java.util.Map;
 public class Lexer {
 
     private static final Logger logger = LoggerFactory.getLogger(Lexer.class);
-
     // =========================================================================
     // TODO STEP 1 — DECLARE INSTANCE FIELDS
     // =========================================================================
@@ -88,11 +88,6 @@ public class Lexer {
     private int pos;
     private int line;
     private int column;
-
-    public Lexer(String source, List<Token> tokens) {
-        this.source = source;
-        this.tokens = tokens;
-    }
 
     // =========================================================================
     // TODO STEP 2 — RESERVED KEYWORD MAP
@@ -132,6 +127,30 @@ public class Lexer {
     //          If you exceed 10 entries (Map.of limit), switch to Map.ofEntries(Map.entry(...), ...)
     //
 
+    private static final Map<String, TokenType> keywordMap = Map.ofEntries(
+        Map.entry("SCRIPT", TokenType.KEYWORD_SCRIPT),
+        Map.entry("AREA", TokenType.KEYWORD_AREA),
+        Map.entry("START", TokenType.KEYWORD_START),
+        Map.entry("END", TokenType.KEYWORD_END),
+        Map.entry("DECLARE", TokenType.KEYWORD_DECLARE),
+        Map.entry("PRINT", TokenType.KEYWORD_PRINT),
+        Map.entry("SCAN", TokenType.KEYWORD_SCAN),
+        Map.entry("IF", TokenType.KEYWORD_IF),
+        Map.entry("ELSE", TokenType.KEYWORD_ELSE),
+        Map.entry("FOR", TokenType.KEYWORD_FOR),
+        Map.entry("REPEAT", TokenType.KEYWORD_REPEAT),
+        Map.entry("WHEN", TokenType.KEYWORD_WHEN),
+
+        Map.entry("INT", TokenType.TYPE_INT),
+        Map.entry("FLOAT", TokenType.TYPE_FLOAT),
+        Map.entry("CHAR", TokenType.TYPE_CHAR),
+        Map.entry("BOOL", TokenType.TYPE_BOOL),
+
+        Map.entry("AND", TokenType.OP_AND),
+        Map.entry("OR", TokenType.OP_OR),
+        Map.entry("NOT", TokenType.OP_NOT)
+    );
+
     // =========================================================================
     // TODO STEP 3 — WRITE THE CONSTRUCTOR
     // =========================================================================
@@ -143,6 +162,14 @@ public class Lexer {
     // TODO 3d: Initialize pos, line, column to 0, 1, 1 respectively.
     // TODO 3e: Add a logger.debug() call logging the source length for traceability.
     //
+
+    public Lexer(String source, List<Token> tokens) {
+        this.source = source;
+        this.tokens = tokens;
+        this.pos = 0;
+        this.line = 1;
+        this.column = 1;
+    }
 
     // =========================================================================
     // TODO STEP 4 — IMPLEMENT THE PUBLIC tokenize() METHOD
@@ -161,6 +188,17 @@ public class Lexer {
     // TODO 4c: Add  logger.debug("Tokenization complete. {} tokens produced.", tokens.size());
     // TODO 4d: Return the tokens list.
     //
+
+    public void tokenize(){
+        while(!isAtEnd()){
+            scanToken();
+        }
+
+        addToken(TokenType.EOF, "");
+        System.out.println("Total token count: " + tokens.size());
+        logger.debug("Tokenization complete. {} tokens produced.", tokens.size());
+        return;
+    }
 
     // =========================================================================
     // TODO STEP 5 — IMPLEMENT scanToken() — THE CORE DISPATCH METHOD
@@ -204,13 +242,7 @@ public class Lexer {
     //          '/'  -> OP_DIV
     //          '&'  -> AMPERSAND      '$'  -> DOLLAR
     //
-    // TODO 5f: Handle TWO-CHARACTER-OR-ONE tokens:
-    //          '='  -> if next is '=' then OP_EQ, else ASSIGN
-    //          '>'  -> if next is '=' then OP_GTE, else OP_GT
-    //          '<'  -> if next is '=' then OP_LTE,
-    //                  else if next is '>' then OP_NEQ,
-    //                  else OP_LT
-    //          '-'  -> OP_MINUS  (the Parser handles unary minus in parsePrimary/parseUnary)
+
     //
     // TODO 5g: Handle STRING LITERALS (double-quoted).
     //          If c == '"':
@@ -233,6 +265,51 @@ public class Lexer {
     //          "Unexpected character '" + c + "' at line " + line + ", column " + (column-1)
     //
 
+    private void scanToken() throws LexorException {
+        char c = advance();
+        if(c == ' ' || c == '\t' || c == '\r') return; // WHITESPACE
+
+        switch (c) {
+            case '\n':
+                addToken(TokenType.NEWLINE, "\\n");
+                line++; column = 1;
+                break;
+            case '%':
+                if(!isAtEnd() && peek() == '%') {
+                    advance();
+                    while (!isAtEnd() && peek() != '\n') {
+                        advance();
+                    }
+                    return; // no token emitted
+                } else {
+                    addToken(TokenType.OP_MOD, "%");
+                    return;
+                }
+            case '(': addToken(TokenType.LPAREN, "("); break;
+            case ')': addToken(TokenType.RPAREN, ")"); break;
+            case '[': addToken(TokenType.LBRACKET, "["); break;
+            case ']': addToken(TokenType.RBRACKET, "]"); break;
+            case ',': addToken(TokenType.COMMA, ","); break;
+            case ':': addToken(TokenType.COLON, ":"); break;
+            case '+': addToken(TokenType.OP_PLUS, "+"); break;
+            case '*': addToken(TokenType.OP_MUL, "*"); break;
+            case '/': addToken(TokenType.OP_DIV, "/"); break;
+            case '&': addToken(TokenType.AMPERSAND, "&"); break;
+            case '$': addToken(TokenType.DOLLAR, "$"); break;
+            case '\'': readCharLiteral(); break;
+            default:
+                if(Character.isDigit(c)){
+                    readNumber(c);
+                } else if (Character.isLetter(c)){
+                    readWord(c);
+                } else {
+                    throw new LexorException("Unexpected character '" + c + "' at line " + line + ", column " + (column-1));
+                }
+                break;
+        }
+
+    }
+
     // =========================================================================
     // TODO STEP 6 — IMPLEMENT advance()
     // =========================================================================
@@ -244,6 +321,10 @@ public class Lexer {
     // TODO 6c: Increment column.
     // TODO 6d: Return the character.
     //
+
+    private char advance(){
+        return 'a'; // kua rani gi put para dili ma red ako implementation sa scanToken hehe
+    }
 
     // =========================================================================
     // TODO STEP 7 — IMPLEMENT peek() AND peekNext()
@@ -258,6 +339,9 @@ public class Lexer {
     // TODO 7b: peekNext() — return '\0' if pos+1 >= source.length(), else source.charAt(pos+1)
     //
 
+    private char peek(){
+        return 'a'; // kua rani gi put para dili ma red ako implementation sa scanToken hehe
+    }
     // =========================================================================
     // TODO STEP 8 — IMPLEMENT readStringLiteral()
     // =========================================================================
@@ -310,6 +394,9 @@ public class Lexer {
     // TODO 9d: Emit CHAR_LITERAL.
     //
 
+    private void readCharLiteral(){ // naa rani diri para dili ma red ang method hehe
+
+    }
 
     // =========================================================================
     // TODO STEP 10 — IMPLEMENT readNumber(char firstDigit)
@@ -338,6 +425,7 @@ public class Lexer {
     // TODO 10d: Otherwise emit INT_LITERAL.
     //
 
+    private void readNumber(char c){}
 
     // =========================================================================
     // TODO STEP 11 — IMPLEMENT readWord(char firstChar)
@@ -360,6 +448,7 @@ public class Lexer {
     // TODO 11c: Call addToken with the resolved type and the word as the lexeme.
     // TODO 11d: Log at DEBUG: "Word scanned: '{}' -> {}", word, type
     //
+    private void readWord(char c){}
 
     // =========================================================================
     // TODO STEP 12 — IMPLEMENT addToken()
@@ -372,11 +461,16 @@ public class Lexer {
     // therefore points to the position AFTER the token. If exact start-column
     // reporting is needed, you can track a 'tokenStartColumn' field in scanToken().
     // For LEXOR's purposes, approximate column is fine for error messages.
-    //
+
+
     // TODO 12a: Create  new Token(type, lexeme, line, column)
     // TODO 12b: Add it to the tokens list.
     // TODO 12c: Log at DEBUG: "Added token: {}", token
     //
+    private void addToken(TokenType type, String input){
+        Token token = new Token(type, input, this.line, this.column);
+        tokens.add(token);
+    }
 
     // =========================================================================
     // TODO STEP 13 — IMPLEMENT isAtEnd()
@@ -386,4 +480,7 @@ public class Lexer {
     //
     // TODO 13a: return  pos >= source.length();
     //
+    private boolean isAtEnd(){
+        return  pos >= source.length();
+    }
 }
