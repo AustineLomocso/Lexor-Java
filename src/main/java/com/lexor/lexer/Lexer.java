@@ -4,6 +4,8 @@ import com.lexor.lexer.Exceptions.LexorException;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.nio.MappedByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -189,7 +191,7 @@ public class Lexer {
     // TODO 4d: Return the tokens list.
     //
 
-    public void tokenize(){
+    public List<Token> tokenize(){
         while(!isAtEnd()){
             scanToken();
         }
@@ -197,7 +199,7 @@ public class Lexer {
         addToken(TokenType.EOF, "");
         System.out.println("Total token count: " + tokens.size());
         logger.debug("Tokenization complete. {} tokens produced.", tokens.size());
-        return;
+        return tokens;
     }
 
     // =========================================================================
@@ -323,7 +325,10 @@ public class Lexer {
     //
 
     private char advance(){
-        return 'a'; // kua rani gi put para dili ma red ako implementation sa scanToken hehe
+        char c = source.charAt(pos);
+        pos++;
+        column++;
+        return c;
     }
 
     // =========================================================================
@@ -340,7 +345,10 @@ public class Lexer {
     //
 
     private char peek(){
-        return 'a'; // kua rani gi put para dili ma red ako implementation sa scanToken hehe
+        return source.charAt(pos);
+    }
+    private char peekNext(){
+        return source.charAt(pos + 1);
     }
     // =========================================================================
     // TODO STEP 8 — IMPLEMENT readStringLiteral()
@@ -375,6 +383,25 @@ public class Lexer {
     // TODO 8g: Add a logger.debug() call showing the literal value.
     //
 
+    private void readStringLiteral(){
+        StringBuilder sb = new StringBuilder();
+        while(peek() != '"' && !isAtEnd()){
+            advance();
+            sb.append(source.charAt(pos));
+        }
+        if (isAtEnd()){
+            throw new RuntimeException("Unexpected end of string literal");
+        }
+        advance();
+        String string = sb.toString();
+        if (string.equals("TRUE") ||  string.equals("FALSE")) {
+            addToken(TokenType.TYPE_BOOL, string);
+        }
+        else{
+            addToken(TokenType.STRING_LITERAL, string);
+        }
+    }
+
     // =========================================================================
     // TODO STEP 9 — IMPLEMENT readCharLiteral()
     // =========================================================================
@@ -395,7 +422,16 @@ public class Lexer {
     //
 
     private void readCharLiteral(){ // naa rani diri para dili ma red ang method hehe
-
+        if(isAtEnd() || peek() == '\\'){
+            throw new LexorException("Empty char literal");
+        }
+        char c = advance();
+        if(isAtEnd() || peek() != '\\'){
+            throw new LexorException("Unexpected character literal");
+        }
+        advance();
+        String string = String.valueOf(c);
+        addToken(TokenType.STRING_LITERAL, string);
     }
 
     // =========================================================================
@@ -425,7 +461,22 @@ public class Lexer {
     // TODO 10d: Otherwise emit INT_LITERAL.
     //
 
-    private void readNumber(char c){}
+    private void readNumber(char c){
+        StringBuilder sb = new StringBuilder();
+        sb.append(c);
+        while(!isAtEnd() && Character.isDigit(peek())){
+            sb.append(source.charAt(pos));
+        }
+        if(peek() == '.' && Character.isDigit(peekNext())){
+            do {
+                sb.append(advance());
+            } while (!isAtEnd() && Character.isDigit(peekNext()));
+
+            addToken(TokenType.FLOAT_LITERAL, sb.toString());
+        }else{
+            addToken(TokenType.INT_LITERAL, sb.toString());
+        }
+    }
 
     // =========================================================================
     // TODO STEP 11 — IMPLEMENT readWord(char firstChar)
@@ -448,7 +499,16 @@ public class Lexer {
     // TODO 11c: Call addToken with the resolved type and the word as the lexeme.
     // TODO 11d: Log at DEBUG: "Word scanned: '{}' -> {}", word, type
     //
-    private void readWord(char c){}
+    private void readWord(char c){
+        StringBuilder sb = new StringBuilder();
+        sb.append(c);
+        while(Character.isLetter(peek()) ||  peek() == '_' || Character.isDigit(peekNext())){
+            sb.append(advance());
+        }
+        String word = sb.toString();
+        TokenType type = keywordMap.getOrDefault(word, TokenType.IDENTIFIER);
+        addToken(type, word);
+    }
 
     // =========================================================================
     // TODO STEP 12 — IMPLEMENT addToken()
