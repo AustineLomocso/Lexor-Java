@@ -8,6 +8,12 @@ public class Token {
     public Token(TokenType type, String lexeme, int line, int column) {
         this.type = type;
         this.lexeme = lexeme;
+        this.line = line;
+        this.column = column;
+    }
+
+    public boolean isType(TokenType type) {
+        return this.type == type;
     }
 
     public TokenType getType() {
@@ -22,4 +28,11 @@ public class Token {
     public int getColumn() {
         return column;
     }
+
+    @Override
+    public String toString() {
+        return String.format("Token[%s, \"%s\", line=%d, col=%d]", type, lexeme, line, column);
+    }
+
+
 }

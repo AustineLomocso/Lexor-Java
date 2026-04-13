@@ -86,10 +86,11 @@ public class Lexer {
     // TODO 1e: Declare  private int column;                 (initialize to 1)
     //
     private final String source;
-    private final List<Token> tokens;
+    private List<Token> tokens = new ArrayList<>();
     private int pos;
-    private int line;
+    private int line = 1;
     private int column;
+    private boolean insideBrackets = false;
 
     // =========================================================================
     // TODO STEP 2 — RESERVED KEYWORD MAP
@@ -165,12 +166,8 @@ public class Lexer {
     // TODO 3e: Add a logger.debug() call logging the source length for traceability.
     //
 
-    public Lexer(String source, List<Token> tokens) {
+    public Lexer(String source) {
         this.source = source;
-        this.tokens = tokens;
-        this.pos = 0;
-        this.line = 1;
-        this.column = 1;
     }
 
     // =========================================================================
@@ -289,8 +286,21 @@ public class Lexer {
                 }
             case '(': addToken(TokenType.LPAREN, "("); break;
             case ')': addToken(TokenType.RPAREN, ")"); break;
-            case '[': addToken(TokenType.LBRACKET, "["); break;
-            case ']': addToken(TokenType.RBRACKET, "]"); break;
+            case '[':
+                insideBrackets = true;
+                addToken(TokenType.LBRACKET, "[");
+                break;
+            case ']':
+                insideBrackets = false;
+                addToken(TokenType.RBRACKET, "]");
+                break;
+            case '#':
+                if (insideBrackets) {
+                    addToken(TokenType.IDENTIFIER, "#");
+                } else {
+                    throw new LexorException("Unexpected character '#' at line " + line);
+                }
+                break;
             case ',': addToken(TokenType.COMMA, ","); break;
             case ':': addToken(TokenType.COLON, ":"); break;
             case '+': addToken(TokenType.OP_PLUS, "+"); break;
@@ -298,11 +308,51 @@ public class Lexer {
             case '/': addToken(TokenType.OP_DIV, "/"); break;
             case '&': addToken(TokenType.AMPERSAND, "&"); break;
             case '$': addToken(TokenType.DOLLAR, "$"); break;
-            case '\'': readCharLiteral(); break;
+            case '-': addToken(TokenType.OP_MINUS, "-"); break;
+            case '.': break;
+
+
+            case '=':
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    addToken(TokenType.OP_EQ, "==");
+                } else {
+                    addToken(TokenType.ASSIGN, "=");
+                }
+                break;
+
+            case '<':
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    addToken(TokenType.OP_LTE, "<=");
+                } else if (!isAtEnd() && peek() == '>') {
+                    advance();
+                    addToken(TokenType.OP_NEQ, "<>");
+                } else {
+                    addToken(TokenType.OP_LT, "<");
+                }
+                break;
+
+            case '>':
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    addToken(TokenType.OP_GTE, ">=");
+                } else {
+                    addToken(TokenType.OP_GT, ">");
+                }
+                break;
+
+            case '"':
+                readStringLiteral(); // You will need to create this method!
+                break;
+            case '\'': {
+                line++;
+                readCharLiteral();
+            }; break;
             default:
                 if(Character.isDigit(c)){
                     readNumber(c);
-                } else if (Character.isLetter(c)){
+                } else if (Character.isLetter(c) || c == '_'){
                     readWord(c);
                 } else {
                     throw new LexorException("Unexpected character '" + c + "' at line " + line + ", column " + (column-1));
@@ -345,9 +395,11 @@ public class Lexer {
     //
 
     private char peek(){
+        if (isAtEnd()) return '\0';
         return source.charAt(pos);
     }
     private char peekNext(){
+        if (pos + 1 >= source.length()) return '\0';
         return source.charAt(pos + 1);
     }
     // =========================================================================
@@ -385,9 +437,9 @@ public class Lexer {
 
     private void readStringLiteral(){
         StringBuilder sb = new StringBuilder();
-        while(peek() != '"' && !isAtEnd()){
-            advance();
-            sb.append(source.charAt(pos));
+        while (!isAtEnd() && peek() != '"') {
+            if (peek() == '\n') line++; // Handle multi-line strings if they exist
+            sb.append(advance());
         }
         if (isAtEnd()){
             throw new RuntimeException("Unexpected end of string literal");
@@ -395,7 +447,7 @@ public class Lexer {
         advance();
         String string = sb.toString();
         if (string.equals("TRUE") ||  string.equals("FALSE")) {
-            addToken(TokenType.TYPE_BOOL, string);
+            addToken(TokenType.BOOL_LITERAL, string);
         }
         else{
             addToken(TokenType.STRING_LITERAL, string);
@@ -422,16 +474,15 @@ public class Lexer {
     //
 
     private void readCharLiteral(){ // naa rani diri para dili ma red ang method hehe
-        if(isAtEnd() || peek() == '\\'){
+        if(isAtEnd() || peek() == '\''){
             throw new LexorException("Empty char literal");
         }
         char c = advance();
-        if(isAtEnd() || peek() != '\\'){
+        if(isAtEnd() || peek() != '\''){
             throw new LexorException("Unexpected character literal");
         }
         advance();
-        String string = String.valueOf(c);
-        addToken(TokenType.STRING_LITERAL, string);
+        addToken(TokenType.CHAR_LITERAL, String.valueOf(c));
     }
 
     // =========================================================================
@@ -464,16 +515,19 @@ public class Lexer {
     private void readNumber(char c){
         StringBuilder sb = new StringBuilder();
         sb.append(c);
+
         while(!isAtEnd() && Character.isDigit(peek())){
-            sb.append(source.charAt(pos));
+            sb.append(advance());
         }
-        if(peek() == '.' && Character.isDigit(peekNext())){
-            do {
+
+        if(!isAtEnd() && peek() == '.' && Character.isDigit(peekNext())){
+            sb.append(advance());
+            while(!isAtEnd() && Character.isDigit(peek())){
                 sb.append(advance());
-            } while (!isAtEnd() && Character.isDigit(peekNext()));
+            }
 
             addToken(TokenType.FLOAT_LITERAL, sb.toString());
-        }else{
+        } else {
             addToken(TokenType.INT_LITERAL, sb.toString());
         }
     }
@@ -502,7 +556,7 @@ public class Lexer {
     private void readWord(char c){
         StringBuilder sb = new StringBuilder();
         sb.append(c);
-        while(Character.isLetter(peek()) ||  peek() == '_' || Character.isDigit(peekNext())){
+        while(!isAtEnd() &&  Character.isLetter(peek()) ||  peek() == '_' || Character.isDigit(peek())){
             sb.append(advance());
         }
         String word = sb.toString();
