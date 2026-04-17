@@ -1,13 +1,10 @@
 package com.lexor.lexer;
 
-import com.lexor.lexer.Exceptions.LexorException;
-import org.apache.commons.lang3.StringUtils;
+import com.lexor.error.LexorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.MappedByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -343,12 +340,12 @@ public class Lexer {
                 break;
 
             case '"':
-                readStringLiteral(); // You will need to create this method!
+                readStringLiteral();
                 break;
-            case '\'': {
+            case '\'':
                 line++;
                 readCharLiteral();
-            }; break;
+                break;
             default:
                 if(Character.isDigit(c)){
                     readNumber(c);
