@@ -10,6 +10,9 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.sun.org.apache.xalan.internal.xsltc.compiler.sym.error;
+import static com.sun.tools.javac.util.Assert.error;
+
 /**
  * Parser — Transforms a flat List<Token> into a structured Abstract Syntax Tree (AST).
  *
@@ -119,6 +122,8 @@ public class Parser {
     // TODO 1a: Declare  private final List<Token> tokens;
     // TODO 1b: Declare  private int current = 0;
     //
+    private final List<Token> tokens;
+    private int current = 0;
 
     // =========================================================================
     // TODO STEP 2 — CONSTRUCTOR
@@ -130,7 +135,10 @@ public class Parser {
     // TODO 2c: logger.debug("Parser initialized with {} tokens.", tokens.size());
     //
 
-
+    public Parser(List<Token> tokens){
+        this.tokens = tokens;
+        logger.debug("Parser initialized with {} tokens.", tokens.size());
+    }
 
     // =========================================================================
     // =========================================================================
@@ -153,7 +161,9 @@ public class Parser {
     //
     // TODO 3a: private Token peek()
     //
-
+    private Token peek(){
+        return tokens.get(current);
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 4 — previous()
@@ -168,7 +178,9 @@ public class Parser {
     // Implementation:  return tokens.get(current - 1);
     //
     // TODO 4a: private Token previous()
-
+    private Token previous(){
+        return tokens.get(current - 1);
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 5 — isAtEnd()
@@ -182,6 +194,9 @@ public class Parser {
     //
     // TODO 5a: private boolean isAtEnd()
     //
+    private boolean isAtEnd(){
+        return peek().isType(TokenType.EOF);
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 6 — check(TokenType type)
@@ -198,7 +213,10 @@ public class Parser {
     //
     // TODO 6a: private boolean check(TokenType type)
     //
-
+    private boolean check(TokenType type){
+        if(isAtEnd()) return false;
+        return peek().isType(type);
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 7 — advance()
@@ -214,6 +232,10 @@ public class Parser {
     //
     // TODO 7a: private Token advance()
     //
+    private Token advance(){
+        if (!isAtEnd()) current++;
+        return previous();
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 8 — match(TokenType... types)
@@ -237,7 +259,12 @@ public class Parser {
     //
     // TODO 8a: private boolean match(TokenType... types)
     //
-
+    private boolean match(TokenType... types){
+        for (TokenType type : types) {
+           if (check(type)) { advance(); return true; }
+       }
+       return false;
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 9 — consume(TokenType type, String message)
@@ -258,7 +285,10 @@ public class Parser {
     //
     // TODO 9a: private Token consume(TokenType type, String message)
     //
-
+    private Token consume(TokenType type, String message){
+       if (check(type)) return advance();
+       throw this.error("Expected " + message + " but found '" + peek().getLexeme() + "' at line " + peek().getLine());
+    }
     // -------------------------------------------------------------------------
     // TODO STEP 10 — skipNewlines()
     // -------------------------------------------------------------------------
@@ -280,7 +310,11 @@ public class Parser {
     //
     // TODO 10a: private void skipNewlines()
     //
-
+    private void skipNewlines(){
+        while(check(TokenType.NEWLINE)){
+            advance();
+        }
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 11 — error(String message)
@@ -299,7 +333,10 @@ public class Parser {
     //
     // TODO 11a: private ParseException error(String message)
     //
-
+    private ParseException error(String message){
+        Token t = peek();
+        return new ParseException(message, t.getLine(), t.getColumn());
+    }
 
 
     // =========================================================================
@@ -350,7 +387,42 @@ public class Parser {
     // TODO 12b: Log "Parsing program structure" at DEBUG before starting.
     // TODO 12c: Log "Program parsed: {} declarations, {} statements" at DEBUG when done.
     //
+    public ProgramNode parse() {
+        logger.debug("Parsing program structure");
 
+        skipNewlines();
+        consume(TokenType.KEYWORD_SCRIPT, "SCRIPT");
+        consume(TokenType.KEYWORD_AREA, "AREA");
+        skipNewlines();
+
+        consume(TokenType.KEYWORD_START, "START");
+        consume(TokenType.KEYWORD_SCRIPT, "SCRIPT");
+        skipNewlines();
+
+        List<DeclarationNode> declarations = new ArrayList<>();
+        List<ASTNode> statements = new ArrayList<>();
+
+        while (check(TokenType.KEYWORD_DECLARE)) {
+            declarations.addAll(parseDeclaration());
+            skipNewlines();
+        }
+
+        while (!check(TokenType.KEYWORD_END) && !isAtEnd()) {
+            skipNewlines();
+            if (!check(TokenType.KEYWORD_END)) {
+                statements.add(parseStatement());
+            }
+            skipNewlines();
+        }
+
+        consume(TokenType.KEYWORD_END, "END");
+        consume(TokenType.KEYWORD_SCRIPT, "SCRIPT");
+
+        logger.debug("Program parsed: {} declarations, {} statements",
+                declarations.size(), statements.size());
+
+        return new ProgramNode(1, declarations, statements);
+    }
 
 
     // =========================================================================
@@ -403,7 +475,37 @@ public class Parser {
     // TODO 13b: Validate that the next token IS a type keyword; throw error if not.
     // TODO 13c: Log "Parsing declaration of type {}" at DEBUG.
     //
+    private List<DeclarationNode> parseDeclaration() {
+        Token declareToken = consume(TokenType.KEYWORD_DECLARE, "DECLARE");
+        int line = declareToken.getLine();
 
+        if (!match(TokenType.TYPE_INT, TokenType.TYPE_FLOAT,
+                TokenType.TYPE_CHAR, TokenType.TYPE_BOOL)) {
+            throw error("Expected variable type (INT, FLOAT, CHAR, BOOL) after DECLARE");
+        }
+
+        String typeName = previous().getLexeme();
+        logger.debug("Parsing declaration of type {}", typeName);
+
+        List<DeclarationNode> decls = new ArrayList<>();
+        do {
+            Token nameToken = consume(TokenType.IDENTIFIER, "variable name");
+            String name = nameToken.getLexeme();
+            ASTNode initializer = null;
+
+            if (match(TokenType.ASSIGN)) {
+                initializer = parsePrimary();
+            }
+
+            decls.add(new DeclarationNode(line, typeName, name, initializer));
+
+        } while (match(TokenType.COMMA));
+        if (!isAtEnd() && !check(TokenType.KEYWORD_END)) {
+            consume(TokenType.NEWLINE, "newline after declaration");
+        }
+
+        return decls;
+    }
 
 
     // =========================================================================
@@ -437,7 +539,25 @@ public class Parser {
     //           Do NOT consume the token here — let each method do that.
     // TODO 14b: Log "Dispatching statement at line {} token {}" at DEBUG.
     //
+    private ASTNode parseStatement() {
+        logger.debug("Dispatching statement at line {} token {}", peek().getLine(), peek().getType());
 
+        if (check(TokenType.KEYWORD_PRINT)) {
+            return parsePrint();
+        } else if (check(TokenType.KEYWORD_SCAN)) {
+            return parseScan();
+        } else if (check(TokenType.KEYWORD_IF)) {
+            return parseIf();
+        } else if (check(TokenType.KEYWORD_FOR)) {
+            return parseFor();
+        } else if (check(TokenType.KEYWORD_REPEAT)) {
+            return parseRepeat();
+        } else if (check(TokenType.IDENTIFIER)) {
+            return parseAssignment();
+        } else {
+            throw error("Unexpected token '" + peek().getLexeme() + "' at statement level");
+        }
+    }
 
 
     // =========================================================================
@@ -488,7 +608,29 @@ public class Parser {
     // TODO 15b: Handle all three segment types.
     // TODO 15c: Log segment count at DEBUG when done.
     //
+    private PrintNode parsePrint() {
+        Token printToken = consume(TokenType.KEYWORD_PRINT, "PRINT");
+        int line = printToken.getLine();
 
+        consume(TokenType.COLON, "':' after PRINT");
+
+        List<ASTNode> segments = new ArrayList<>();
+        do {
+            if (match(TokenType.DOLLAR)) {
+                segments.add(new LiteralNode(line, "\n", "NEWLINE_MARKER"));
+            } else if (match(TokenType.LBRACKET)) {
+                Token inner = advance();
+                consume(TokenType.RBRACKET, "']' to close escape code");
+                segments.add(new LiteralNode(line, inner.getLexeme(), "ESCAPE"));
+            } else {
+                segments.add(parseExpression());
+            }
+        } while (match(TokenType.AMPERSAND));
+        skipNewlines();
+
+        logger.debug("Parsed PRINT statement with {} segments", segments.size());
+        return new PrintNode(line, segments);
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 16 — parseScan()
