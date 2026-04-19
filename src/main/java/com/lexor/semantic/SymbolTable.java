@@ -68,8 +68,32 @@ package com.lexor.semantic;
 //                 table.put(name, new TypeInfo(type, line));
 //
 //   This is called by SemanticAnalyzer.visitDeclaration() for each DECLARE statement.
+import com.lexor.error.SemanticException;
+import java.util.HashMap;
+import java.util.Map;
 
-// TODO: public TypeInfo lookup(String name)
+public class SymbolTable {
+    public static class TypeInfo {
+        private final String type;
+        private final int line;
+        public TypeInfo(String type, int line) {
+            this.type = type;
+            this.line = line;
+        }
+        public String getType() { return type; }
+        public int    getLine() { return line; }
+    }
+    public final Map<String, TypeInfo> table = new HashMap<>();
+    public void declare(String name, String type, int line){
+        if(table.containsKey(name)){
+            throw new SemanticException(
+                    "Variable '" + name + "' already declared", line, 0);
+        }
+        table.put(name, new TypeInfo(type, line));
+
+
+    }
+    // TODO: public TypeInfo lookup(String name)
 //
 //   Returns the TypeInfo for a declared variable, or throws if not found.
 //
@@ -85,8 +109,14 @@ package com.lexor.semantic;
 //   NOTE: The line=0 in the thrown exception is a placeholder. For more accurate
 //   error reporting, SemanticAnalyzer can catch this and rethrow with the node's
 //   line number attached.
-
-// TODO: public boolean isDeclared(String name)
+    public TypeInfo lookup(String name){
+        TypeInfo info = table.get(name);
+        if(info == null){
+            throw new SemanticException("Undeclared variable '" + name + "'", 0, 0);
+        }
+        return info;
+    }
+    // TODO: public boolean isDeclared(String name)
 //
 //   Returns true if the variable has been registered, false otherwise.
 //   Does NOT throw — this is for conditional checks without exception flow.
@@ -96,8 +126,11 @@ package com.lexor.semantic;
 //
 //   Useful for pre-checking before calling declare() to avoid duplicate exceptions
 //   in certain parser recovery scenarios.
+    public boolean isDeclared(String name){
+        return table.containsKey(name);
+    }
 
-// TODO: public void clear()
+    // TODO: public void clear()
 //
 //   Resets the symbol table to empty.
 //   Call this in the REPL between sessions if variables should not persist
@@ -105,7 +138,9 @@ package com.lexor.semantic;
 //
 //   Implementation:
 //     table.clear();
-
+    public void clear(){
+        table.clear();
+    }
 // =============================================================================
 // USAGE EXAMPLE (inside SemanticAnalyzer):
 // =============================================================================
@@ -128,3 +163,6 @@ package com.lexor.semantic;
 //   }
 //
 // =============================================================================
+
+
+}

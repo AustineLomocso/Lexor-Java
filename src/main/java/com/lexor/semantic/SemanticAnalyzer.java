@@ -50,9 +50,17 @@ package com.lexor.semantic;
 // TODO: Import SemanticException from com.lexor.error
 // TODO: Import org.slf4j.Logger, org.slf4j.LoggerFactory
 
+
+import com.lexor.parser.ast.*;
+import com.lexor.visitor.ASTVisitor;
+import com.lexor.error.SemanticException; // Needed for all your exception throwing
+import org.slf4j.Logger;                 // CORRECT Logger interface
+import org.slf4j.LoggerFactory;          // Factory to build the Logger
+
 // TODO: Declare the class implementing ASTVisitor<String> (or Void, see note above):
 //
-//         public class SemanticAnalyzer implements ASTVisitor<String> { ... }
+public class SemanticAnalyzer implements ASTVisitor<String> {
+
 
 // -----------------------------------------------------------------------------
 // FIELDS TO DECLARE:
@@ -63,6 +71,8 @@ package com.lexor.semantic;
 // TODO: private final SymbolTable symbolTable;
 //       - Injected or created in the constructor.
 //       - Stores every declared variable and its type.
+    private static final Logger log = LoggerFactory.getLogger(SemanticAnalyzer.class);
+    private final SymbolTable symbolTable;
 
 // -----------------------------------------------------------------------------
 // CONSTRUCTOR:
@@ -78,7 +88,9 @@ package com.lexor.semantic;
 //         public SemanticAnalyzer(SymbolTable symbolTable) {
 //             this.symbolTable = symbolTable;
 //         }
-
+    public SemanticAnalyzer() {
+        this.symbolTable = new SymbolTable();
+    }
 // =============================================================================
 // PUBLIC ENTRY POINT
 // =============================================================================
@@ -95,7 +107,11 @@ package com.lexor.semantic;
 //
 //   Any SemanticException thrown during traversal propagates out to Main.java,
 //   which catches it and prints the error message to stderr.
-
+    public void analyze(ProgramNode program){
+        log.debug("Starting semantic analysis ...");
+        program.accept(this);
+        log.debug("Semantic analysis complete.");
+    }
 // =============================================================================
 // VISITOR METHOD IMPLEMENTATIONS
 // =============================================================================
@@ -109,7 +125,16 @@ package com.lexor.semantic;
 //     for (DeclarationNode d : n.getDeclarations()) d.accept(this);
 //     for (ASTNode s : n.getStatements())           s.accept(this);
 //     return null;
-
+    @Override
+    public String visitProgram(ProgramNode program) {
+        for(DeclarationNode declaration : program.getDeclarations()){
+            declaration.accept(this);
+        }
+        for(ASTNode node : program.getStatements()){
+            node.accept(this);
+        }
+        return null;
+    }
 // TODO: @Override public String visitDeclaration(DeclarationNode n)
 //
 //   Registers the variable; validates the initializer type if present.
@@ -121,7 +146,15 @@ package com.lexor.semantic;
 //                 String initType = n.getInitializer().accept(this);
 //                 checkTypeCompatibility(n.getType(), initType, n.getLine());
 //     Step 3 — return null;
-
+    @Override
+    public String visitDeclaration(DeclarationNode declaration) {
+        symbolTable.declare(declaration.getName(), declaration.getTypeName(), declaration.getLine());
+        if(declaration.getInitializer() != null){
+            String initType = declaration.getInitializer().accept(this);
+            checkTypeCompatibility(declaration.getTypeName(), initType, declaration.getLine());
+        }
+        return null;
+    }
 // TODO: @Override public String visitAssignment(AssignmentNode n)
 //
 //   Verifies each target is declared and the value type matches.
@@ -132,7 +165,15 @@ package com.lexor.semantic;
 //                 SymbolTable.TypeInfo info = symbolTable.lookup(name);  // throws if undeclared
 //                 checkTypeCompatibility(info.getType(), valType, n.getLine());
 //     Step 3 — return null;
-
+    @Override
+    public String visitAssignment(AssignmentNode assignment) {
+        String valueType = assignment.getValue().accept(this);
+        for(String name: assignment.getTargets()){
+            SymbolTable.TypeInfo info = symbolTable.lookup(name);
+            checkTypeCompatibility(info.getType(), valueType, assignment.getLine());
+        }
+        return null;
+    }
 // TODO: @Override public String visitPrint(PrintNode n)
 //
 //   Validates each segment expression. PRINT accepts any type (all print as string).
@@ -140,7 +181,13 @@ package com.lexor.semantic;
 //   Implementation:
 //     for (ASTNode seg : n.getSegments()) seg.accept(this);
 //     return null;
-
+    @Override
+    public String visitPrint(PrintNode node) {
+        for(ASTNode seg: node.getSegments()){
+            seg.accept(this);
+        }
+        return null;
+    }
 // TODO: @Override public String visitScan(ScanNode n)
 //
 //   Verifies each target variable is declared.
@@ -151,7 +198,15 @@ package com.lexor.semantic;
 //             throw new SemanticException("Undeclared variable in SCAN: " + name, n.getLine(), 0);
 //     }
 //     return null;
-
+    @Override
+    public String visitScan(ScanNode scan) {
+        for(String name: scan.getVariables()){
+            if(!symbolTable.isDeclared(name)){
+                throw new SemanticException("Variable " + name + " is not declared in line " + scan.getLine());
+            }
+        }
+        return null;
+    }
 // TODO: @Override public String visitBinaryExpr(BinaryExprNode n)
 //
 //   Type-checks both operands, validates operator compatibility, returns result type.
@@ -167,7 +222,44 @@ package com.lexor.semantic;
 //       "AND", "OR"             → both must be "BOOL"       → return "BOOL"
 //
 //     On any mismatch: throw SemanticException("Type mismatch for operator " + op, n.getLine(), 0)
+    @Override
+    public String visitBinaryExpr(BinaryExprNode binaryExpr) {
+        String left = binaryExpr.getLeft().accept(this);
+        String right = binaryExpr.getRight().accept(this);
 
+        switch(binaryExpr.getOperator()){
+            case "+","-","*","/","%":{
+                if(!isNumeric(left) || !isNumeric(right)){
+                    throw new SemanticException("Arithmetic operator "+binaryExpr.getOperator()+" requires numeric operands at line "+binaryExpr.getLine());
+                }
+                return (left.equals("INT") && right.equals("INT")) ? "INT" : "FLOAT";
+            }
+            case "<", ">", "<=", ">=":{
+                if(!isNumeric(left) || !isNumeric(right)){
+                    throw new SemanticException("Comparison operator "+binaryExpr.getOperator()+" requires numeric operands at line "+binaryExpr.getLine());
+                }
+                return "BOOL";
+            }
+            case "==", "<>": {
+                if (left.equals(right)) {
+                    return "BOOL";
+                }
+                throw new SemanticException("Type mismatch: Cannot compare " + left + " with " + right + " using '" + binaryExpr.getOperator() + "'.", binaryExpr.getLine(), 0);
+            }
+            case "AND", "OR":{
+                if(!(left.equals("BOOL") && right.equals("BOOL"))){
+                    throw new SemanticException("Logical operator "+binaryExpr.getOperator()+" requires boolean operands at line "+binaryExpr.getLine());
+                }
+                return "BOOL";
+            }
+            default:
+                throw new SemanticException("Type mismatch at line "+binaryExpr.getLine());
+        }
+    }
+
+    private boolean isNumeric(String type){
+        return type.equals("INT") || type.equals("FLOAT");
+    }
 // TODO: @Override public String visitUnaryExpr(UnaryExprNode n)
 //
 //   Validates operand type for the unary operator.
@@ -179,14 +271,27 @@ package com.lexor.semantic;
 //     if ("NOT".equals(n.getOperator()) && !type.equals("BOOL"))
 //         throw SemanticException("NOT requires BOOL operand", n.getLine(), 0);
 //     return type;
-
+    @Override
+    public String visitUnaryExpr(UnaryExprNode unaryExpr) {
+        String type =  unaryExpr.getOperand().accept(this);
+        if("-".equals(unaryExpr.getOperator()) && !type.equals("INT") && !type.equals("FLOAT")){
+            throw new SemanticException("Unary '-' requires INT or FLOAT at line "+ unaryExpr.getLine());
+        }
+        if("NOT".equals(unaryExpr.getOperator()) && !type.equals("BOOL")){
+            throw new SemanticException("NOR requires BOOL at line "+ unaryExpr.getLine());
+        }
+        return type;
+    }
 // TODO: @Override public String visitLiteral(LiteralNode n)
 //
 //   Literals are always valid. Just return the literal's type string.
 //
 //   Implementation:
 //     return n.getType();
-
+    @Override
+    public String visitLiteral(LiteralNode literal) {
+        return literal.getTypeName();
+    }
 // TODO: @Override public String visitVariable(VariableNode n)
 //
 //   Looks up the variable in the SymbolTable to confirm it's declared.
@@ -195,7 +300,11 @@ package com.lexor.semantic;
 //   Implementation:
 //     SymbolTable.TypeInfo info = symbolTable.lookup(n.getName());  // throws if undeclared
 //     return info.getType();
-
+    @Override
+    public String visitVariable(VariableNode variable) {
+        SymbolTable.TypeInfo info = symbolTable.lookup(variable.getName());
+        return info.getType();
+    }
 // TODO: @Override public String visitIf(IfNode n)
 //
 //   Validates condition is BOOL, then validates all branches recursively.
@@ -213,7 +322,23 @@ package com.lexor.semantic;
 //     if (n.getElseBlock() != null)
 //         for (ASTNode stmt : n.getElseBlock()) stmt.accept(this);
 //     return null;
-
+    @Override
+    public String visitIf(IfNode ifNode) {
+        String condition = ifNode.getCondition().accept(this);
+        if(!"BOOL".equals(condition)){
+            throw new SemanticException("If condition requires BOOL at line "+ifNode.getLine());
+        }
+        for(ASTNode stmt : ifNode.getThenBlock()) stmt.accept(this);
+        for(IfNode.ElseIfClause clause : ifNode.getElseIfClauses()){
+            String clauseType = clause.getCondition().accept(this);
+            if(!"BOOL".equals(clauseType)) throw new SemanticException("If condition requires BOOL at line "+ifNode.getLine());
+            for(ASTNode stmt : clause.getBody()) stmt.accept(this);
+        }
+        if(ifNode.getElseBlock() != null){
+            for(ASTNode stmt : ifNode.getElseBlock()) stmt.accept(this);
+        }
+        return null;
+    }
 // TODO: @Override public String visitFor(ForNode n)
 //
 //   Validates init, condition (must be BOOL), update, and body.
@@ -225,7 +350,15 @@ package com.lexor.semantic;
 //     n.getUpdate().accept(this);
 //     for (ASTNode stmt : n.getBody()) stmt.accept(this);
 //     return null;
-
+    @Override
+    public String visitFor(ForNode forNode) {
+        forNode.getInit().accept(this);
+        String condition = forNode.getCondition().accept(this);
+        if(!"BOOL".equals(condition)) throw new SemanticException("For condition requires BOOL at line "+forNode.getLine());
+        forNode.getUpdate().accept(this);
+        for(ASTNode stmt : forNode.getBody()) stmt.accept(this);
+        return null;
+    }
 // TODO: @Override public String visitRepeat(RepeatNode n)
 //
 //   Validates body first (body runs before condition at runtime), then condition.
@@ -235,7 +368,13 @@ package com.lexor.semantic;
 //     String condType = n.getCondition().accept(this);
 //     if (!"BOOL".equals(condType)) throw SemanticException("REPEAT WHEN condition must be BOOL", ...)
 //     return null;
-
+    @Override
+    public String visitRepeat(RepeatNode repeatNode) {
+        for(ASTNode stmt : repeatNode.getBody()) stmt.accept(this);
+        String condition = repeatNode.getCondition().accept(this);
+        if(!"BOOL".equals(condition)) throw new SemanticException("Repeats at line "+repeatNode.getLine());
+        return null;
+    }
 // =============================================================================
 // PRIVATE HELPER
 // =============================================================================
@@ -256,3 +395,9 @@ package com.lexor.semantic;
 //   If INT → FLOAT coercion is not allowed, remove that widening case.
 //
 // =============================================================================
+    private void checkTypeCompatibility(String typeName, String initType, int line) {
+        if(typeName.equals(initType)){ return; }
+        if("FLOAT".equals(typeName) && "INT".equals(initType)){return;}
+        throw new SemanticException("Incompatible types at line "+line);
+    }
+}
