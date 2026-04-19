@@ -10,9 +10,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.sun.org.apache.xalan.internal.xsltc.compiler.sym.error;
-import static com.sun.tools.javac.util.Assert.error;
-
 /**
  * Parser — Transforms a flat List<Token> into a structured Abstract Syntax Tree (AST).
  *
@@ -545,7 +542,7 @@ public class Parser {
         if (check(TokenType.KEYWORD_PRINT)) {
             return parsePrint();
         } else if (check(TokenType.KEYWORD_SCAN)) {
-            return parseScan();
+            return parseScanNode();
         } else if (check(TokenType.KEYWORD_IF)) {
             return parseIf();
         } else if (check(TokenType.KEYWORD_FOR)) {
@@ -659,7 +656,18 @@ public class Parser {
     //
     // TODO 16a: Implement parseScan() following the algorithm above.
     //
-
+    private ScanNode parseScanNode(){
+        Token scanToken = consume(TokenType.KEYWORD_SCAN, "SCAN");
+        int line = scanToken.getLine();
+        consume(TokenType.COLON, "':' after SCAN");
+        List<String> segments = new ArrayList<>();
+        do {
+            Token varToken = consume(TokenType.IDENTIFIER, "variable name");
+            segments.add(varToken.getLexeme());
+        }while(match(TokenType.COMMA));
+        skipNewlines();
+        return new ScanNode(line, segments);
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 17 — parseAssignment()
@@ -707,7 +715,24 @@ public class Parser {
     //           that returns tokens.get(current + offset).isType(type)
     //           guarded by a bounds check. Use it to detect chaining.
     //
+        private AssignmentNode parseAssignment(){
+            int line = peek().getLine();
+            List<String> variables = new ArrayList<>();
+            while(check(TokenType.IDENTIFIER) && checkAhead(1, TokenType.ASSIGN)) {
+                Token identifierToken = consume(TokenType.IDENTIFIER, "variable name");
+                variables.add(identifierToken.getLexeme());
+                consume(TokenType.ASSIGN, "=");
+            }
+            if( variables.isEmpty()) throw error("Missing variable name");
+            ASTNode value = parseExpression();
+            skipNewlines();
+            return new AssignmentNode(line, variables,value);
+        }
 
+        private boolean checkAhead(int offset, TokenType tokenType) {
+            if(current + offset >= tokens.size()) return false;
+            return (tokens.get(current+offset).getType().equals(tokenType));
+        }
 
     // -------------------------------------------------------------------------
     // TODO STEP 18 — parseIf()
@@ -765,7 +790,36 @@ public class Parser {
     // TODO 18a: Implement parseIf() following the algorithm above.
     // TODO 18b: Log "Parsing IF at line {}" at DEBUG.
     //
-
+    private IfNode parseIf(){
+        Token ifToken = consume(TokenType.KEYWORD_IF, "IF");
+        int line = ifToken.getLine();
+        consume(TokenType.LPAREN, "'(' after IF");
+        ASTNode condition = parseExpression();
+        consume(TokenType.RPAREN, "')' after condition");
+        skipNewlines();
+        List<ASTNode> thenBlock = parseBlock("IF");
+        List<IfNode.ElseIfClause> elseIfClauses = new ArrayList<>();
+        List<ASTNode> elseBlocks = null;
+        while(peek().getType() == TokenType.KEYWORD_ELSE) {
+            if(checkAhead(1, TokenType.KEYWORD_IF)) {
+                advance();
+                advance();
+                consume(TokenType.LPAREN, "'(' after ELSE");
+                ASTNode cond = parseExpression();
+                consume(TokenType.RPAREN, "')' after condition");
+                skipNewlines();
+                List<ASTNode> body = parseBlock("IF");
+                elseIfClauses.add(new IfNode.ElseIfClause(cond, body));
+            }
+            else{
+                advance();
+                skipNewlines();
+                elseBlocks = parseBlock("IF");
+                break;
+            }
+        }
+        return new IfNode(line, condition, thenBlock, elseIfClauses, elseBlocks);
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 19 — parseBlock(String keyword)
@@ -800,7 +854,51 @@ public class Parser {
     //             "FOR"    → KEYWORD_FOR
     //             "REPEAT" → KEYWORD_REPEAT
     //
-
+    private List<ASTNode> parseBlock(String blockType){
+        List<ASTNode> statements = new ArrayList<>();
+        consume(TokenType.KEYWORD_START, "START");
+        switch(blockType){
+            case "IF":{
+                consume(TokenType.KEYWORD_IF, "IF");
+                break;
+            }
+            case "FOR":{
+                consume(TokenType.KEYWORD_FOR, "FOR");
+                break;
+            }
+            case "REPEAT": {
+                consume(TokenType.KEYWORD_REPEAT, "REPEAT");
+                break;
+            }
+            default:{
+                throw error("Unkown block type: " + blockType);
+            }
+        }
+        skipNewlines();
+        while(!check(TokenType.KEYWORD_END) && !isAtEnd()) {
+            skipNewlines();
+            if(check(TokenType.KEYWORD_END)) break;
+            statements.add(parseStatement());
+            skipNewlines();
+        }
+        consume(TokenType.KEYWORD_END, "END after statement");
+        switch(blockType){
+            case "IF":{
+                consume(TokenType.KEYWORD_IF, "IF");
+                break;
+            }
+            case "FOR":{
+                consume(TokenType.KEYWORD_FOR, "FOR");
+                break;
+            }
+            case "REPEAT": {
+                consume(TokenType.KEYWORD_REPEAT, "REPEAT");
+                break;
+            }
+        }
+        skipNewlines();
+        return statements;
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 20 — parseFor()
@@ -846,6 +944,31 @@ public class Parser {
     //           Returns AssignmentNode.
     //
 
+    private ForNode parseFor(){
+        Token forToken = consume(TokenType.KEYWORD_FOR, "FOR");
+        int line = forToken.getLine();
+        consume(TokenType.LPAREN, "(");
+        AssignmentNode init = parseForAssignment();
+        consume(TokenType.COMMA, ",");
+        ASTNode condition = parseExpression();
+        consume(TokenType.COMMA, ",");
+        AssignmentNode update = parseForAssignment();
+        consume(TokenType.RPAREN, ")");
+
+        skipNewlines();
+        List<ASTNode> body = parseBlock("FOR");
+        return new ForNode(line,init, condition, update, body);
+    }
+
+    private AssignmentNode parseForAssignment(){
+        Token targetToken =  consume(TokenType.IDENTIFIER, "target");
+        int line = targetToken.getLine();
+        List<String> targetVariables = new ArrayList<>();
+        targetVariables.add(targetToken.getLexeme());
+        consume(TokenType.ASSIGN, "=");
+        ASTNode value = parseExpression();
+        return new AssignmentNode(line, targetVariables,value);
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 21 — parseRepeat()
@@ -877,7 +1000,17 @@ public class Parser {
     // TODO 21a: Implement parseRepeat().
     //
 
-
+    private RepeatNode parseRepeat(){
+        Token repeatToken = consume(TokenType.KEYWORD_REPEAT, "START");
+        int line = repeatToken.getLine();
+        consume(TokenType.KEYWORD_WHEN, "WHEN");
+        consume(TokenType.LPAREN, "(");
+        ASTNode condition = parseExpression();
+        consume(TokenType.RPAREN, ")");
+        skipNewlines();
+        List<ASTNode> body = parseBlock("REPEAT");
+        return new RepeatNode(line, condition, body);
+    }
 
     // =========================================================================
     // =========================================================================
@@ -900,7 +1033,9 @@ public class Parser {
     //
     // TODO 22a: Implement parseExpression() as a delegation to parseLogical().
     //
-
+    private ASTNode parseExpression(){
+        return parseLogical();
+    }
     // -------------------------------------------------------------------------
     // TODO STEP 23 — parseLogical()
     // -------------------------------------------------------------------------
@@ -931,7 +1066,15 @@ public class Parser {
     //
     // TODO 23a: Implement parseLogical().
     //
-
+    private ASTNode parseLogical(){
+        ASTNode left = parseUnaryLogical();
+        while(match(TokenType.OP_AND) || match(TokenType.OP_OR)){
+            String op = previous().getLexeme();
+            ASTNode right = parseUnaryLogical();
+            left = new BinaryExprNode(left.getLine(), left, op, right);
+        }
+        return left;
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 24 — parseUnaryLogical()
@@ -957,7 +1100,14 @@ public class Parser {
     //
     // TODO 24a: Implement parseUnaryLogical().
     //
-
+    private ASTNode parseUnaryLogical(){
+        if(match(TokenType.OP_NOT)){
+            String op = previous().getLexeme();
+            ASTNode operand = parseUnaryLogical();
+            return new UnaryExprNode(previous().getLine(), op, operand);
+        }
+        return parseRelational();
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 25 — parseRelational()
@@ -979,7 +1129,15 @@ public class Parser {
     //
     // TODO 25a: Implement parseRelational().
     //
-
+    private ASTNode parseRelational(){
+        ASTNode left = parseAdditive();
+        while(match(TokenType.OP_GT) || match(TokenType.OP_GTE) || match(TokenType.OP_LTE) || match(TokenType.OP_LT) || match(TokenType.OP_EQ) || match(TokenType.OP_NEQ)){
+            String op = previous().getLexeme();
+            ASTNode right = parseAdditive();
+            left = new BinaryExprNode(left.getLine(), left, op, right);
+        }
+        return left;
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 26 — parseAdditive()
@@ -996,8 +1154,15 @@ public class Parser {
     //
     // TODO 26a: Implement parseAdditive().
     //
-
-
+    private ASTNode parseAdditive(){
+        ASTNode left = parseMultiplicative();
+        while(match(TokenType.OP_PLUS, TokenType.OP_MINUS)){
+            String op = previous().getLexeme();
+            ASTNode right = parseMultiplicative();
+            left = new BinaryExprNode(left.getLine(), left, op, right);
+        }
+        return left;
+    }
     // -------------------------------------------------------------------------
     // TODO STEP 27 — parseMultiplicative()
     // -------------------------------------------------------------------------
@@ -1014,6 +1179,15 @@ public class Parser {
     // TODO 27a: Implement parseMultiplicative().
     //
 
+    private ASTNode parseMultiplicative(){
+        ASTNode left = parseUnaryArith();
+        while(match(TokenType.OP_MUL, TokenType.OP_DIV,  TokenType.OP_MOD)){
+            String op = previous().getLexeme();
+            ASTNode right = parseUnaryArith();
+            left = new BinaryExprNode(left.getLine(), left, op, right);
+        }
+        return left;
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 28 — parseUnaryArith()
@@ -1037,7 +1211,14 @@ public class Parser {
     //
     // TODO 28a: Implement parseUnaryArith().
     //
-
+    private ASTNode parseUnaryArith(){
+        if(match(TokenType.OP_MINUS, TokenType.OP_PLUS)){
+            String op = previous().getLexeme();
+            ASTNode operand = parseUnaryArith();
+            return new UnaryExprNode(previous().getLine(), op, operand);
+        }
+        return parsePrimary();
+    }
 
     // -------------------------------------------------------------------------
     // TODO STEP 29 — parsePrimary()   [BASE OF THE EXPRESSION CHAIN]
@@ -1072,5 +1253,42 @@ public class Parser {
     // TODO 29e: For BOOL_LITERAL, use previous().getLexeme().equals("TRUE").
     // TODO 29f: Throw error("Expected expression") if no case matches.
     //
-
+    private ASTNode parsePrimary(){
+        if(match(TokenType.INT_LITERAL)){
+            Token t = previous();
+            int value = Integer.parseInt(t.getLexeme());
+            return new LiteralNode(t.getLine(), value, "INT");
+        }
+        if(match(TokenType.FLOAT_LITERAL)){
+            Token t = previous();
+            float value = Float.parseFloat(t.getLexeme());
+            return new LiteralNode(t.getLine(), value, "FLOAT");
+        }
+        if(match(TokenType.STRING_LITERAL)){
+            Token t = previous();
+            String value = t.getLexeme();
+            return new LiteralNode(t.getLine(), value, "STRING");
+        }
+        if(match(TokenType.CHAR_LITERAL)){
+            Token t = previous();
+            char value = t.getLexeme().replace("'", "").charAt(0);
+            return new LiteralNode(t.getLine(), value, "CHAR");
+        }
+        if(match(TokenType.BOOL_LITERAL)){
+            Token t = previous();
+            boolean value = t.getLexeme().replace("\"", "").equals("TRUE");
+            return new LiteralNode(t.getLine(), value, "BOOL");
+        }
+        if(match(TokenType.IDENTIFIER)){
+            Token t = previous();
+            String value = t.getLexeme();
+            return new VariableNode(t.getLine(), value);
+        }
+        if (match(TokenType.LPAREN)) {
+            ASTNode innerExpression = parseExpression();
+            consume(TokenType.RPAREN, "')' after expression");
+            return innerExpression;
+        }
+        throw error("Expected expression");
+    }
 }
