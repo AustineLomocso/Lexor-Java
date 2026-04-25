@@ -28,8 +28,13 @@ package com.lexor.interpreter;
 // =============================================================================
 
 // TODO: Import com.lexor.error.LexorRuntimeException
+import com.lexor.error.LexorException;
+
+import java.util.Objects;
 
 // TODO: public class LexorValue { ... }
+public class LexorValue {
+
 
 // -----------------------------------------------------------------------------
 // FIELDS TO DECLARE:
@@ -42,7 +47,8 @@ package com.lexor.interpreter;
 // TODO: private final Object value;
 //       - The actual runtime data stored as a Java Object.
 //       - The accessor methods below cast this safely.
-
+    private final String type;
+    private final Object value;
 // -----------------------------------------------------------------------------
 // CONSTRUCTOR:
 // -----------------------------------------------------------------------------
@@ -52,6 +58,10 @@ package com.lexor.interpreter;
 //             this.type  = type;
 //             this.value = value;
 //         }
+    public LexorValue(String type, Object value) {
+        this.type = type;
+        this.value = value;
+    }
 //
 //   Usage examples by the Interpreter:
 //     new LexorValue("INT",   42)
@@ -68,7 +78,9 @@ package com.lexor.interpreter;
 //   The Interpreter uses getType() when deciding which arithmetic operation to
 //   apply (e.g., INT division vs. FLOAT division) and when constructing result
 //   LexorValues with the correct promoted type.
-
+    public String getType() {
+        return type;
+    }
 // =============================================================================
 // TYPED ACCESSOR METHODS
 // =============================================================================
@@ -90,7 +102,12 @@ package com.lexor.interpreter;
 //
 //   Called by: Interpreter when performing arithmetic on INT operands,
 //              in relational comparisons, and as a loop counter.
+    public int asInt(){
+        if(value instanceof Integer i) return i;
+        if(value instanceof Float f) return f.intValue();
+        throw new LexorException("Type " + type + " is not an integer");
 
+    }
 // TODO: public float asFloat()
 //
 //   Returns the value as a Java float.
@@ -102,7 +119,11 @@ package com.lexor.interpreter;
 //         "Cannot read '" + type + "' value as FLOAT", 0, 0);
 //
 //   Called by: Interpreter when either operand in arithmetic is FLOAT.
-
+    public float asFloat(){
+        if(value instanceof Float f) return f;
+        if(value instanceof Integer i) return i.floatValue();
+        throw new LexorException("Type " + type + " is not a float");
+    }
 // TODO: public boolean asBool()
 //
 //   Returns the value as a Java boolean.
@@ -114,7 +135,10 @@ package com.lexor.interpreter;
 //
 //   Called by: Interpreter in IF, FOR, REPEAT WHEN conditions,
 //              and for AND/OR/NOT logical operations.
-
+    public boolean asBool(){
+        if(value instanceof Boolean b) return b;
+        throw new LexorException("Type " + type + " is not a boolean");
+    }
 // TODO: public char asChar()
 //
 //   Returns the value as a Java char.
@@ -125,7 +149,10 @@ package com.lexor.interpreter;
 //         "Cannot read '" + type + "' value as CHAR", 0, 0);
 //
 //   Called by: Interpreter when printing a CHAR variable.
-
+    public char asChar(){
+        if(value instanceof Character c) return c;
+        throw new LexorException("Type " + type + " is not a character");
+    }
 // =============================================================================
 // toString() OVERRIDE
 // =============================================================================
@@ -149,7 +176,16 @@ package com.lexor.interpreter;
 //
 //   FLOAT NOTE: Consider using String.format("%.2f", asFloat()) if LEXOR
 //   specifies a fixed decimal display for floats. Otherwise, valueOf is fine.
-
+    @Override
+    public String toString(){
+        switch(type){
+            case "int": return String.valueOf((int)(asInt()));
+            case "float": return String.valueOf((float)(asFloat()));
+            case "bool": return asBool() ? "TRUE" : "FALSE";
+            case "char": return String.valueOf(asChar());
+            default: return String.valueOf(value);
+        }
+    }
 // =============================================================================
 // equals() AND hashCode() (OPTIONAL BUT RECOMMENDED)
 // =============================================================================
@@ -166,7 +202,12 @@ package com.lexor.interpreter;
 //   This allows the == operator in LEXOR to compare by value, not by Java
 //   object identity. Without this override, == on two LexorValue("INT", 5)
 //   instances would return false (different Java objects).
-
+    @Override
+    public boolean equals(Object o){
+        if(this == o) return true;
+        if(!(o instanceof LexorValue other)) return false;
+        return this.type.equals(other.type) && this.value.equals(other.value);
+    }
 // TODO: @Override public int hashCode()
 //   Required whenever equals() is overridden (Java contract).
 //   Use: return Objects.hash(type, value);
@@ -175,15 +216,19 @@ package com.lexor.interpreter;
 // =============================================================================
 // STATIC FACTORY METHODS (OPTIONAL — for convenience)
 // =============================================================================
-
+    @Override
+    public int hashCode(){
+        return Objects.hash(type, value);
+    }
 // TODO (optional): Add static factory methods to avoid repeating "new LexorValue(...)":
 //
-//   public static LexorValue ofInt(int v)     { return new LexorValue("INT",   v); }
-//   public static LexorValue ofFloat(float v) { return new LexorValue("FLOAT", v); }
-//   public static LexorValue ofBool(boolean v){ return new LexorValue("BOOL",  v); }
-//   public static LexorValue ofChar(char v)   { return new LexorValue("CHAR",  v); }
+   public static LexorValue ofInt(int v)     { return new LexorValue("INT",   v); }
+   public static LexorValue ofFloat(float v) { return new LexorValue("FLOAT", v); }
+   public static LexorValue ofBool(boolean v){ return new LexorValue("BOOL",  v); }
+   public static LexorValue ofChar(char v)   { return new LexorValue("CHAR",  v); }
 //
 //   Usage in Interpreter: return LexorValue.ofInt(left.asInt() + right.asInt());
 //   This is cleaner than: return new LexorValue("INT", left.asInt() + right.asInt());
 
 // =============================================================================
+}
