@@ -44,8 +44,13 @@ package com.lexor.interpreter;
 // TODO: Import java.util.HashMap, java.util.Map
 // TODO: Import com.lexor.error.LexorRuntimeException
 
-// TODO: public class Environment { ... }
+import com.lexor.error.LexorRuntimeException;
 
+import java.util.HashMap;
+import java.util.Map;
+
+// TODO: public class Environment { ... }
+public class Environment {
 // -----------------------------------------------------------------------------
 // FIELDS TO DECLARE:
 // -----------------------------------------------------------------------------
@@ -57,24 +62,24 @@ package com.lexor.interpreter;
 // TODO: private final Environment parent;
 //       - Reference to the enclosing scope. Null for the global scope.
 //       - Used by get() and assign() to walk up the scope chain.
-
+    private final Map<String, LexorValue> store;
+    private final Environment parent;
 // -----------------------------------------------------------------------------
 // CONSTRUCTORS:
 // -----------------------------------------------------------------------------
 //
 // TODO: Global scope constructor (no parent):
 //
-//         public Environment() {
-//             this.store  = new HashMap<>();
-//             this.parent = null;
-//         }
+    public Environment() {
+        this.store  = new HashMap<>();
+        this.parent = null;
+    }
 //
 // TODO: Child scope constructor (receives parent):
-//
-//         public Environment(Environment parent) {
-//             this.store  = new HashMap<>();
-//             this.parent = parent;
-//         }
+    public Environment(Environment parent) {
+        this.store  = new HashMap<>();
+        this.parent = parent;
+    }
 //
 //   The Interpreter should call createChildScope() rather than this constructor
 //   directly, to keep scope creation self-contained (see factory method below).
@@ -98,7 +103,9 @@ package com.lexor.interpreter;
 //
 //   SemanticAnalyzer already prevents duplicate declarations, so no need to
 //   guard against them here (but you may add an assertion if you want).
-
+    public void define(String name, LexorValue value){
+        this.store.put(name, value);
+    }
 // TODO: public LexorValue get(String name)
 //
 //   Retrieves the current value of a variable, walking up the scope chain.
@@ -112,7 +119,11 @@ package com.lexor.interpreter;
 //
 //   The chain walk ensures that a variable declared in the global scope is
 //   accessible from any nested block, no matter how deep.
-
+    public LexorValue getValue(String name){
+        if(store.containsKey(name)) return store.get(name);
+        if(parent != null) return parent.getValue(name);
+        throw new LexorRuntimeException("Undefined variable "+name+" at ", 0, 0);
+    }
 // TODO: public void assign(String name, LexorValue value)
 //
 //   Updates the value of an already-declared variable, walking up the scope
@@ -132,7 +143,17 @@ package com.lexor.interpreter;
 //   If you used only one method (like always calling put()), a FOR loop body
 //   that reassigns "i" would create a new "i" in the loop scope instead of
 //   updating the outer "i". That would break loop counters.
-
+    public void assign(String name, LexorValue value){
+        if(store.containsKey(name)){
+            store.put(name, value);
+            return;
+        }
+        if(parent != null){
+            parent.assign(name, value);
+            return;
+        }
+        throw new LexorRuntimeException("Undefined variable "+name+" at ", 0, 0);
+    }
 // TODO: public Environment createChildScope()
 //
 //   Factory method — creates and returns a new child Environment linked to
@@ -147,7 +168,9 @@ package com.lexor.interpreter;
 //     this.environment   = this.environment.createChildScope();
 //     // ... execute block statements ...
 //     this.environment   = saved;   // restore after block exits
-
+    public Environment createChildScope(){
+        return new Environment(this);
+    }
 // =============================================================================
 // DEBUGGING HELPER (OPTIONAL BUT USEFUL)
 // =============================================================================
@@ -167,7 +190,18 @@ package com.lexor.interpreter;
 //
 //   Call this in Interpreter with log.debug(environment.dump()) after each
 //   statement to trace runtime state during development.
+    public String dump(){
+        StringBuilder sb = new StringBuilder("Environment:\n");
+        for(Map.Entry<String, LexorValue> entry : store.entrySet()){
+            sb.append(" ").append(entry.getKey()).append("=").append(entry.getValue()).append("\n");
+        }
+        sb.append("}");
+        return sb.toString();
+    }
 
+    public LexorValue get(String varName) {
+        return store.get(varName);
+    }
 // =============================================================================
 // REPL PERSISTENCE NOTE:
 // =============================================================================
@@ -183,3 +217,4 @@ package com.lexor.interpreter;
 //   recommended.
 //
 // =============================================================================
+}
