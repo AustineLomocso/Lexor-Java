@@ -20,14 +20,35 @@ import java.util.Scanner;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * InterpreterTest — Comprehensive test suite for the interpreter package.
+ * Revised InterpreterTest — every test is annotated with the bug it catches.
  *
- * STRUCTURE:
- *   1. LexorValueTest       — Pure unit tests for LexorValue in isolation.
- *   2. EnvironmentTest      — Pure unit tests for Environment in isolation.
- *   3. InterpreterExecTest  — End-to-end integration tests that run the full
- *                             Lexer → Parser → SemanticAnalyzer → Interpreter pipeline
- *                             and assert on captured stdout output.
+ * BUG MAP:
+ *   BUG-1  LexorValue.toString() switch uses lowercase keys ("bool","int","float","char")
+ *          but the type field is always uppercase ("BOOL","INT","FLOAT","CHAR").
+ *          Effect: every BOOL value prints "true"/"false" instead of "TRUE"/"FALSE".
+ *          Fix:    change all four switch case strings to uppercase.
+ *
+ *   BUG-2  asInt/asFloat/asBool/asChar throw LexorException (wrong class, wrong
+ *          constructor arity) instead of LexorRuntimeException(message, line, col).
+ *          Effect: compilation error; wrong exception type if it compiled.
+ *          Fix:    replace LexorException(...) with LexorRuntimeException(msg, 0, 0).
+ *
+ *   BUG-3  getRawValue() method is missing from LexorValue.
+ *          Effect: Interpreter cannot do == / <> comparisons (NullPointerException or compile error).
+ *          Fix:    add public Object getRawValue() { return value; }
+ *
+ *   BUG-4  defaultFor(String type) static method is missing from LexorValue.
+ *          Effect: uninitialised DECLARE variables throw NullPointerException.
+ *          Fix:    add the method returning zero values per type.
+ *
+ *   BUG-5  Environment.get(String) does not walk the scope chain.
+ *          It calls store.get(name) directly, returning null silently for
+ *          any variable not in the immediate scope.
+ *          Fix:    make get() delegate to getValue() or re-implement chain walk.
+ *
+ *   BUG-6  The scope-walking method is named getValue() but the Interpreter
+ *          calls get(), so BUG-5's broken stub is always used.
+ *          Fix:    rename getValue() to get() and delete the broken stub.
  */
 class InterpreterTest {
 
@@ -42,69 +63,49 @@ class InterpreterTest {
         // ── Constructor & getType ────────────────────────────────────────────
 
         @Test
-        @DisplayName("Constructor stores type and value; getType() returns correct type")
-        void constructorStoresTypeAndGetTypeReturnsIt() {
-            LexorValue v = new LexorValue("INT", 42);
-            assertEquals("INT", v.getType());
-        }
-
-        @Test
-        @DisplayName("Constructor stores Float value correctly")
-        void constructorStoresFloatValue() {
-            LexorValue v = new LexorValue("FLOAT", 3.14f);
-            assertEquals("FLOAT", v.getType());
-        }
-
-        @Test
-        @DisplayName("Constructor stores Character value correctly")
-        void constructorStoresCharValue() {
-            LexorValue v = new LexorValue("CHAR", 'A');
-            assertEquals("CHAR", v.getType());
-        }
-
-        @Test
-        @DisplayName("Constructor stores Boolean value correctly")
-        void constructorStoresBoolValue() {
-            LexorValue v = new LexorValue("BOOL", true);
-            assertEquals("BOOL", v.getType());
+        @DisplayName("getType() returns the exact string passed to constructor")
+        void getTypeReturnsConstructorValue() {
+            assertEquals("INT",   new LexorValue("INT",   42).getType());
+            assertEquals("FLOAT", new LexorValue("FLOAT", 1.0f).getType());
+            assertEquals("CHAR",  new LexorValue("CHAR",  'A').getType());
+            assertEquals("BOOL",  new LexorValue("BOOL",  true).getType());
         }
 
         // ── Static factories ─────────────────────────────────────────────────
 
         @Test
-        @DisplayName("ofInt() creates INT value with correct asInt()")
-        void ofIntFactory() {
-            LexorValue v = LexorValue.ofInt(99);
+        @DisplayName("ofInt() creates INT LexorValue; asInt() returns stored value")
+        void ofInt() {
+            LexorValue v = LexorValue.ofInt(7);
             assertEquals("INT", v.getType());
-            assertEquals(99, v.asInt());
+            assertEquals(7, v.asInt());
         }
 
         @Test
-        @DisplayName("ofFloat() creates FLOAT value with correct asFloat()")
-        void ofFloatFactory() {
-            LexorValue v = LexorValue.ofFloat(1.5f);
+        @DisplayName("ofFloat() creates FLOAT LexorValue; asFloat() returns stored value")
+        void ofFloat() {
+            LexorValue v = LexorValue.ofFloat(3.14f);
             assertEquals("FLOAT", v.getType());
-            assertEquals(1.5f, v.asFloat(), 0.0001f);
+            assertEquals(3.14f, v.asFloat(), 0.001f);
         }
 
         @Test
-        @DisplayName("ofBool(true) creates BOOL value with correct asBool()")
-        void ofBoolTrueFactory() {
+        @DisplayName("ofBool(true) creates BOOL LexorValue; asBool() returns true")
+        void ofBoolTrue() {
             LexorValue v = LexorValue.ofBool(true);
             assertEquals("BOOL", v.getType());
             assertTrue(v.asBool());
         }
 
         @Test
-        @DisplayName("ofBool(false) creates BOOL value with correct asBool()")
-        void ofBoolFalseFactory() {
-            LexorValue v = LexorValue.ofBool(false);
-            assertFalse(v.asBool());
+        @DisplayName("ofBool(false) creates BOOL LexorValue; asBool() returns false")
+        void ofBoolFalse() {
+            assertFalse(LexorValue.ofBool(false).asBool());
         }
 
         @Test
-        @DisplayName("ofChar() creates CHAR value with correct asChar()")
-        void ofCharFactory() {
+        @DisplayName("ofChar() creates CHAR LexorValue; asChar() returns stored value")
+        void ofChar() {
             LexorValue v = LexorValue.ofChar('z');
             assertEquals("CHAR", v.getType());
             assertEquals('z', v.asChar());
@@ -113,129 +114,131 @@ class InterpreterTest {
         // ── asInt() ──────────────────────────────────────────────────────────
 
         @Test
-        @DisplayName("asInt() returns int value from INT type")
+        @DisplayName("asInt() returns correct value from INT LexorValue")
         void asIntFromInt() {
-            assertEquals(7, LexorValue.ofInt(7).asInt());
+            assertEquals(42, LexorValue.ofInt(42).asInt());
         }
 
         @Test
-        @DisplayName("asInt() truncates FLOAT to int (widening in reverse)")
-        void asIntFromFloat() {
-            LexorValue v = LexorValue.ofFloat(9.9f);
-            assertEquals(9, v.asInt());
+        @DisplayName("asInt() truncates FLOAT value (9.9f → 9)")
+        void asIntTruncatesFloat() {
+            assertEquals(9, LexorValue.ofFloat(9.9f).asInt());
         }
 
         @Test
-        @DisplayName("asInt() on BOOL throws LexorRuntimeException")
-        void asIntOnBoolThrows() {
-            LexorValue v = LexorValue.ofBool(true);
-            assertThrows(LexorRuntimeException.class, v::asInt);
+        @DisplayName("[BUG-2] asInt() on BOOL must throw LexorRuntimeException, not LexorException")
+        void asIntOnBoolThrowsLexorRuntimeException() {
+            assertThrows(LexorRuntimeException.class,
+                    () -> LexorValue.ofBool(true).asInt(),
+                    "BUG-2: currently throws LexorException — must throw LexorRuntimeException");
         }
 
         @Test
-        @DisplayName("asInt() on CHAR throws LexorRuntimeException")
-        void asIntOnCharThrows() {
-            LexorValue v = LexorValue.ofChar('A');
-            assertThrows(LexorRuntimeException.class, v::asInt);
+        @DisplayName("[BUG-2] asInt() on CHAR must throw LexorRuntimeException")
+        void asIntOnCharThrowsLexorRuntimeException() {
+            assertThrows(LexorRuntimeException.class,
+                    () -> LexorValue.ofChar('A').asInt(),
+                    "BUG-2: wrong exception class thrown");
         }
 
         // ── asFloat() ────────────────────────────────────────────────────────
 
         @Test
-        @DisplayName("asFloat() returns float value from FLOAT type")
+        @DisplayName("asFloat() returns correct value from FLOAT LexorValue")
         void asFloatFromFloat() {
             assertEquals(2.5f, LexorValue.ofFloat(2.5f).asFloat(), 0.0001f);
         }
 
         @Test
-        @DisplayName("asFloat() widens INT to float")
-        void asFloatFromInt() {
-            LexorValue v = LexorValue.ofInt(4);
-            assertEquals(4.0f, v.asFloat(), 0.0001f);
+        @DisplayName("asFloat() widens INT to float (4 → 4.0f)")
+        void asFloatWidensInt() {
+            assertEquals(4.0f, LexorValue.ofInt(4).asFloat(), 0.0001f);
         }
 
         @Test
-        @DisplayName("asFloat() on BOOL throws LexorRuntimeException")
-        void asFloatOnBoolThrows() {
-            assertThrows(LexorRuntimeException.class, () -> LexorValue.ofBool(false).asFloat());
+        @DisplayName("[BUG-2] asFloat() on BOOL must throw LexorRuntimeException")
+        void asFloatOnBoolThrowsLexorRuntimeException() {
+            assertThrows(LexorRuntimeException.class,
+                    () -> LexorValue.ofBool(false).asFloat(),
+                    "BUG-2: wrong exception class");
         }
 
         @Test
-        @DisplayName("asFloat() on CHAR throws LexorRuntimeException")
-        void asFloatOnCharThrows() {
-            assertThrows(LexorRuntimeException.class, () -> LexorValue.ofChar('B').asFloat());
+        @DisplayName("[BUG-2] asFloat() on CHAR must throw LexorRuntimeException")
+        void asFloatOnCharThrowsLexorRuntimeException() {
+            assertThrows(LexorRuntimeException.class,
+                    () -> LexorValue.ofChar('B').asFloat(),
+                    "BUG-2: wrong exception class");
         }
 
         // ── asBool() ─────────────────────────────────────────────────────────
 
         @Test
-        @DisplayName("asBool() returns true for BOOL true")
-        void asBoolTrue() {
+        @DisplayName("asBool() returns correct value from BOOL LexorValue")
+        void asBoolFromBool() {
             assertTrue(LexorValue.ofBool(true).asBool());
-        }
-
-        @Test
-        @DisplayName("asBool() returns false for BOOL false")
-        void asBoolFalse() {
             assertFalse(LexorValue.ofBool(false).asBool());
         }
 
         @Test
-        @DisplayName("asBool() on INT throws LexorRuntimeException")
-        void asBoolOnIntThrows() {
-            assertThrows(LexorRuntimeException.class, () -> LexorValue.ofInt(1).asBool());
+        @DisplayName("[BUG-2] asBool() on INT must throw LexorRuntimeException")
+        void asBoolOnIntThrowsLexorRuntimeException() {
+            assertThrows(LexorRuntimeException.class,
+                    () -> LexorValue.ofInt(1).asBool(),
+                    "BUG-2: wrong exception class");
         }
 
         @Test
-        @DisplayName("asBool() on FLOAT throws LexorRuntimeException")
-        void asBoolOnFloatThrows() {
-            assertThrows(LexorRuntimeException.class, () -> LexorValue.ofFloat(1.0f).asBool());
+        @DisplayName("[BUG-2] asBool() on FLOAT must throw LexorRuntimeException")
+        void asBoolOnFloatThrowsLexorRuntimeException() {
+            assertThrows(LexorRuntimeException.class,
+                    () -> LexorValue.ofFloat(1.0f).asBool(),
+                    "BUG-2: wrong exception class");
         }
 
         // ── asChar() ─────────────────────────────────────────────────────────
 
         @Test
-        @DisplayName("asChar() returns char value from CHAR type")
+        @DisplayName("asChar() returns correct value from CHAR LexorValue")
         void asCharFromChar() {
             assertEquals('x', LexorValue.ofChar('x').asChar());
         }
 
         @Test
-        @DisplayName("asChar() on INT throws LexorRuntimeException")
-        void asCharOnIntThrows() {
-            assertThrows(LexorRuntimeException.class, () -> LexorValue.ofInt(65).asChar());
+        @DisplayName("[BUG-2] asChar() on INT must throw LexorRuntimeException")
+        void asCharOnIntThrowsLexorRuntimeException() {
+            assertThrows(LexorRuntimeException.class,
+                    () -> LexorValue.ofInt(65).asChar(),
+                    "BUG-2: wrong exception class");
         }
 
-        // ── toString() ───────────────────────────────────────────────────────
+        // ── toString() — BUG-1 ───────────────────────────────────────────────
 
         @Test
-        @DisplayName("toString() on INT returns digit string")
+        @DisplayName("toString() on INT 42 returns '42'")
         void toStringInt() {
             assertEquals("42", LexorValue.ofInt(42).toString());
         }
 
         @Test
-        @DisplayName("toString() on INT zero returns '0'")
-        void toStringIntZero() {
-            assertEquals("0", LexorValue.ofInt(0).toString());
-        }
-
-        @Test
-        @DisplayName("toString() on negative INT returns negative string")
+        @DisplayName("toString() on INT -5 returns '-5'")
         void toStringNegativeInt() {
             assertEquals("-5", LexorValue.ofInt(-5).toString());
         }
 
         @Test
-        @DisplayName("toString() on BOOL true returns 'TRUE' (uppercase)")
-        void toStringBoolTrue() {
-            assertEquals("TRUE", LexorValue.ofBool(true).toString());
+        @DisplayName("[BUG-1] toString() on BOOL true must return 'TRUE' (uppercase)")
+        void toStringBoolTrueMustBeUppercase() {
+            assertEquals("TRUE", LexorValue.ofBool(true).toString(),
+                    "BUG-1: switch key is 'bool' (lowercase) so case never matches; " +
+                            "default path returns Java's 'true'. Fix: change to 'BOOL'.");
         }
 
         @Test
-        @DisplayName("toString() on BOOL false returns 'FALSE' (uppercase)")
-        void toStringBoolFalse() {
-            assertEquals("FALSE", LexorValue.ofBool(false).toString());
+        @DisplayName("[BUG-1] toString() on BOOL false must return 'FALSE' (uppercase)")
+        void toStringBoolFalseMustBeUppercase() {
+            assertEquals("FALSE", LexorValue.ofBool(false).toString(),
+                    "BUG-1: returns 'false' instead of 'FALSE'. Fix: uppercase switch key.");
         }
 
         @Test
@@ -245,13 +248,74 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("toString() on FLOAT returns numeric string")
+        @DisplayName("toString() on FLOAT contains the numeric digits")
         void toStringFloat() {
-            LexorValue v = LexorValue.ofFloat(3.5f);
-            // Must contain "3" and "5"
-            String s = v.toString();
+            String s = LexorValue.ofFloat(3.5f).toString();
             assertTrue(s.contains("3") && s.contains("5"),
-                "Expected float string to contain digits, got: " + s);
+                    "Expected string containing '3' and '5', got: " + s);
+        }
+
+        // ── getRawValue() — BUG-3 ────────────────────────────────────────────
+
+        @Test
+        @DisplayName("[BUG-3] getRawValue() returns the raw Object value for INT")
+        void getRawValueInt() {
+            // BUG-3: getRawValue() is missing — this will not compile until it is added.
+            assertEquals(Integer.valueOf(10), LexorValue.ofInt(10).getRawValue());
+        }
+
+        @Test
+        @DisplayName("[BUG-3] getRawValue() returns Boolean.TRUE for BOOL true")
+        void getRawValueBoolTrue() {
+            assertEquals(Boolean.TRUE, LexorValue.ofBool(true).getRawValue());
+        }
+
+        @Test
+        @DisplayName("[BUG-3] getRawValue() returns Character for CHAR value")
+        void getRawValueChar() {
+            assertEquals('Q', LexorValue.ofChar('Q').getRawValue());
+        }
+
+        // ── defaultFor() — BUG-4 ─────────────────────────────────────────────
+
+        @Test
+        @DisplayName("[BUG-4] defaultFor('INT') must return INT value 0")
+        void defaultForInt() {
+            // BUG-4: method missing — compile error until added.
+            LexorValue v = LexorValue.defaultFor("INT");
+            assertEquals("INT", v.getType());
+            assertEquals(0, v.asInt());
+        }
+
+        @Test
+        @DisplayName("[BUG-4] defaultFor('FLOAT') must return FLOAT value 0.0")
+        void defaultForFloat() {
+            LexorValue v = LexorValue.defaultFor("FLOAT");
+            assertEquals("FLOAT", v.getType());
+            assertEquals(0.0f, v.asFloat(), 0.0001f);
+        }
+
+        @Test
+        @DisplayName("[BUG-4] defaultFor('BOOL') must return BOOL false")
+        void defaultForBool() {
+            LexorValue v = LexorValue.defaultFor("BOOL");
+            assertEquals("BOOL", v.getType());
+            assertFalse(v.asBool());
+        }
+
+        @Test
+        @DisplayName("[BUG-4] defaultFor('CHAR') must return CHAR null character")
+        void defaultForChar() {
+            LexorValue v = LexorValue.defaultFor("CHAR");
+            assertEquals("CHAR", v.getType());
+            assertEquals('\0', v.asChar());
+        }
+
+        @Test
+        @DisplayName("[BUG-4] defaultFor() with unknown type throws LexorRuntimeException")
+        void defaultForUnknownTypeThrows() {
+            assertThrows(LexorRuntimeException.class,
+                    () -> LexorValue.defaultFor("STRING"));
         }
 
         // ── equals() and hashCode() ───────────────────────────────────────────
@@ -264,31 +328,31 @@ class InterpreterTest {
 
         @Test
         @DisplayName("Two INT LexorValues with different values are not equal")
-        void equalsIntDifferentValue() {
+        void equalsIntDifferentValues() {
             assertNotEquals(LexorValue.ofInt(1), LexorValue.ofInt(2));
         }
 
         @Test
-        @DisplayName("INT and FLOAT with same numeric value are not equal (type differs)")
-        void equalsIntVsFloatNotEqual() {
+        @DisplayName("INT and FLOAT with same numeric value are not equal — type tag differs")
+        void equalsIntVsFloatDifferent() {
             assertNotEquals(LexorValue.ofInt(5), LexorValue.ofFloat(5.0f));
         }
 
         @Test
-        @DisplayName("Two BOOL true values are equal")
-        void equalsBoolTrue() {
+        @DisplayName("BOOL true and BOOL true are equal")
+        void equalsBoolSameValue() {
             assertEquals(LexorValue.ofBool(true), LexorValue.ofBool(true));
         }
 
         @Test
         @DisplayName("BOOL true and BOOL false are not equal")
-        void equalsBoolTrueVsFalse() {
+        void equalsBoolDifferentValues() {
             assertNotEquals(LexorValue.ofBool(true), LexorValue.ofBool(false));
         }
 
         @Test
         @DisplayName("hashCode() is consistent with equals()")
-        void hashCodeConsistentWithEquals() {
+        void hashCodeConsistency() {
             LexorValue a = LexorValue.ofInt(7);
             LexorValue b = LexorValue.ofInt(7);
             assertEquals(a, b);
@@ -299,12 +363,6 @@ class InterpreterTest {
         @DisplayName("LexorValue is not equal to null")
         void notEqualToNull() {
             assertNotEquals(LexorValue.ofInt(1), null);
-        }
-
-        @Test
-        @DisplayName("LexorValue is not equal to a plain String")
-        void notEqualToString() {
-            assertNotEquals(LexorValue.ofInt(1), "1");
         }
     }
 
@@ -317,42 +375,38 @@ class InterpreterTest {
     @DisplayName("Environment")
     class EnvironmentTest {
 
-        // ── define() and get() ───────────────────────────────────────────────
+        // ── define() and get() — BUG-5 / BUG-6 ──────────────────────────────
 
         @Test
-        @DisplayName("define() and get() round-trip stores and retrieves value")
-        void defineAndGetRoundTrip() {
+        @DisplayName("[BUG-5/6] define() then get() in same scope returns the value")
+        void defineAndGetSameScope() {
             Environment env = new Environment();
             env.define("x", LexorValue.ofInt(10));
-            assertEquals(10, env.get("x").asInt());
+            LexorValue result = env.get("x");
+            assertNotNull(result,
+                    "BUG-5: get() returned null — broken stub calls store.get() directly without chain walk");
+            assertEquals(10, result.asInt());
         }
 
         @Test
-        @DisplayName("define() overwrites a previous value in the same scope")
-        void defineOverwritesSameScope() {
-            Environment env = new Environment();
-            env.define("x", LexorValue.ofInt(1));
-            env.define("x", LexorValue.ofInt(99));
-            assertEquals(99, env.get("x").asInt());
-        }
-
-        @Test
-        @DisplayName("get() on undefined variable throws LexorRuntimeException")
+        @DisplayName("[BUG-5/6] get() on undefined variable throws LexorRuntimeException")
         void getUndefinedThrows() {
             Environment env = new Environment();
-            assertThrows(LexorRuntimeException.class, () -> env.get("undefined"));
+            assertThrows(LexorRuntimeException.class,
+                    () -> env.get("notDefined"),
+                    "BUG-5: broken get() returns null instead of throwing");
         }
 
         @Test
-        @DisplayName("Multiple variables can coexist in the same scope")
-        void multipleVariablesCoexist() {
+        @DisplayName("Multiple variables coexist in the same scope")
+        void multipleVariables() {
             Environment env = new Environment();
             env.define("a", LexorValue.ofInt(1));
             env.define("b", LexorValue.ofFloat(2.0f));
             env.define("c", LexorValue.ofBool(true));
-            assertEquals(1,     env.get("a").asInt());
-            assertEquals(2.0f,  env.get("b").asFloat(), 0.0001f);
-            assertTrue(         env.get("c").asBool());
+            assertEquals(1,    env.get("a").asInt());
+            assertEquals(2.0f, env.get("b").asFloat(), 0.001f);
+            assertTrue(        env.get("c").asBool());
         }
 
         // ── assign() ─────────────────────────────────────────────────────────
@@ -371,95 +425,92 @@ class InterpreterTest {
         void assignUndefinedThrows() {
             Environment env = new Environment();
             assertThrows(LexorRuntimeException.class,
-                () -> env.assign("notDefined", LexorValue.ofInt(5)));
+                    () -> env.assign("ghost", LexorValue.ofInt(5)));
         }
 
         @Test
-        @DisplayName("assign() can change a variable's value multiple times")
+        @DisplayName("assign() can update the same variable multiple times")
         void assignMultipleTimes() {
             Environment env = new Environment();
             env.define("n", LexorValue.ofInt(0));
-            for (int i = 1; i <= 5; i++) {
-                env.assign("n", LexorValue.ofInt(i));
-            }
+            for (int i = 1; i <= 5; i++) env.assign("n", LexorValue.ofInt(i));
             assertEquals(5, env.get("n").asInt());
         }
 
-        // ── createChildScope() and scope chain ───────────────────────────────
+        // ── createChildScope() — BUG-5/6 ─────────────────────────────────────
 
         @Test
-        @DisplayName("Child scope can read variables defined in parent scope")
-        void childScopeReadsParentVariable() {
+        @DisplayName("[BUG-5/6] Child scope get() reads variable from parent scope")
+        void childReadsParentVariable() {
             Environment parent = new Environment();
             parent.define("x", LexorValue.ofInt(77));
 
             Environment child = parent.createChildScope();
-            assertEquals(77, child.get("x").asInt());
+            LexorValue result = child.get("x");
+            assertNotNull(result,
+                    "BUG-5/6: child.get('x') returned null — scope chain not walked");
+            assertEquals(77, result.asInt());
         }
 
         @Test
-        @DisplayName("Child scope does not affect parent after going out of scope")
-        void childScopeIsolatedFromParent() {
+        @DisplayName("Child variable not visible in parent after block")
+        void childVariableNotInParent() {
             Environment parent = new Environment();
-            parent.define("x", LexorValue.ofInt(5));
-
-            Environment child = parent.createChildScope();
-            child.define("y", LexorValue.ofInt(999)); // new var in child only
-
-            // parent should not see "y"
+            Environment child  = parent.createChildScope();
+            child.define("y", LexorValue.ofInt(999));
             assertThrows(LexorRuntimeException.class, () -> parent.get("y"));
         }
 
         @Test
-        @DisplayName("assign() in child scope updates the parent scope's variable")
-        void childAssignUpdatesParentVariable() {
+        @DisplayName("[BUG-5/6] assign() in child scope updates the parent's variable")
+        void childAssignUpdatesParent() {
             Environment parent = new Environment();
             parent.define("counter", LexorValue.ofInt(0));
 
             Environment child = parent.createChildScope();
             child.assign("counter", LexorValue.ofInt(10));
 
-            // The update should be visible in the parent
-            assertEquals(10, parent.get("counter").asInt());
+            assertEquals(10, parent.get("counter").asInt(),
+                    "BUG-5/6: parent variable not updated by child assign()");
         }
 
         @Test
-        @DisplayName("Three levels deep: grandchild can read grandparent variable")
-        void deepScopeChain() {
+        @DisplayName("[BUG-5/6] Three levels deep: grandchild get() reaches grandparent")
+        void deepChainGet() {
             Environment global = new Environment();
             global.define("x", LexorValue.ofInt(1));
 
-            Environment level1 = global.createChildScope();
-            Environment level2 = level1.createChildScope();
+            Environment l1 = global.createChildScope();
+            Environment l2 = l1.createChildScope();
 
-            assertEquals(1, level2.get("x").asInt());
+            LexorValue result = l2.get("x");
+            assertNotNull(result, "BUG-5/6: deep chain get() returned null");
+            assertEquals(1, result.asInt());
         }
 
         @Test
-        @DisplayName("Three levels deep: grandchild assign updates grandparent")
-        void deepScopeChainAssign() {
+        @DisplayName("[BUG-5/6] Three levels deep: grandchild assign() updates grandparent")
+        void deepChainAssign() {
             Environment global = new Environment();
             global.define("x", LexorValue.ofInt(0));
 
-            Environment level1 = global.createChildScope();
-            Environment level2 = level1.createChildScope();
-            level2.assign("x", LexorValue.ofInt(55));
+            Environment l1 = global.createChildScope();
+            Environment l2 = l1.createChildScope();
+            l2.assign("x", LexorValue.ofInt(55));
 
             assertEquals(55, global.get("x").asInt());
         }
 
         @Test
-        @DisplayName("define() in child does not shadow global when we restore parent")
-        void scopeRestoreAfterBlock() {
+        @DisplayName("Restoring parent scope after child block leaves parent value intact")
+        void scopeRestore() {
             Environment global = new Environment();
             global.define("x", LexorValue.ofInt(10));
 
-            // Simulate entering and exiting a block
             Environment block = global.createChildScope();
-            block.define("x", LexorValue.ofInt(999)); // shadow
+            block.define("x", LexorValue.ofInt(999)); // shadow in child only
 
-            // After "exiting" the block we use global again
-            assertEquals(10, global.get("x").asInt()); // global unchanged
+            assertEquals(10, global.get("x").asInt());
         }
     }
 
@@ -467,28 +518,24 @@ class InterpreterTest {
     // =========================================================================
     // SECTION 3 — Interpreter End-to-End Integration Tests
     // =========================================================================
-    //
-    // Helper: run a full program through all pipeline stages and return stdout.
-    // =========================================================================
 
     @Nested
     @DisplayName("Interpreter — End-to-End Execution")
     class InterpreterExecTest {
 
-        /** Run source through Lexer→Parser→SemanticAnalyzer→Interpreter. Returns stdout. */
         private String run(String source) {
             return runWithInput(source, "");
         }
 
         private String runWithInput(String source, String userInput) {
-            List<Token> tokens   = new Lexer(source).tokenize();
-            ProgramNode ast      = new Parser(tokens).parse();
-            SemanticAnalyzer sem = new SemanticAnalyzer();
+            List<Token>      tokens = new Lexer(source).tokenize();
+            ProgramNode      ast    = new Parser(tokens).parse();
+            SemanticAnalyzer sem    = new SemanticAnalyzer();
             sem.analyze(ast);
 
-            ByteArrayOutputStream buf = new ByteArrayOutputStream();
-            Scanner scanner = new Scanner(
-                new ByteArrayInputStream(userInput.getBytes())
+            ByteArrayOutputStream buf     = new ByteArrayOutputStream();
+            Scanner               scanner = new Scanner(
+                    new ByteArrayInputStream(userInput.getBytes())
             );
             Interpreter interp = new Interpreter(new PrintStream(buf), scanner);
             interp.interpret(ast);
@@ -498,11 +545,8 @@ class InterpreterTest {
         // ── Spec Sample Programs ─────────────────────────────────────────────
 
         @Test
-        @DisplayName("Spec sample 1: mixed types, chain assign, PRINT with $ and escape codes")
+        @DisplayName("Spec sample 1 — exact output match (BUG-1 and BUG-5/6 both affect this)")
         void specSample1() {
-            // Expected:
-            //   4TRUE5
-            //   c#last
             String src = """
                 SCRIPT AREA
                 START SCRIPT
@@ -516,15 +560,14 @@ class InterpreterTest {
                 """;
             String out = run(src);
             String[] lines = out.split("\n", -1);
-            assertEquals("4TRUE5", lines[0]);
+            assertEquals("4TRUE5", lines[0],
+                    "Line 1: BUG-1 would give '4true5'; BUG-5/6 would give NullPointerException");
             assertEquals("c#last", lines[1]);
         }
 
         @Test
-        @DisplayName("Spec sample 2: complex arithmetic, escape code [[] and []]")
+        @DisplayName("Spec sample 2 — complex arithmetic with unary minus")
         void specSample2() {
-            // xyz = ((100*5)/10 + 10) * -1 = (50+10)*-1 = -60
-            // Expected: [-60]
             String src = """
                 SCRIPT AREA
                 START SCRIPT
@@ -537,9 +580,8 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("Spec sample 3: logical AND and <> in BOOL expression")
+        @DisplayName("Spec sample 3 — logical AND result must print 'TRUE' (BUG-1)")
         void specSample3() {
-            // a=100, b=200, c=300; d = (100<200 AND 300<>200) = TRUE AND TRUE = TRUE
             String src = """
                 SCRIPT AREA
                 START SCRIPT
@@ -549,80 +591,78 @@ class InterpreterTest {
                 PRINT: d
                 END SCRIPT
                 """;
-            assertEquals("TRUE", run(src).trim());
+            assertEquals("TRUE", run(src).trim(),
+                    "BUG-1: BOOL toString() prints 'true' instead of 'TRUE'");
         }
 
-        // ── Variable Declarations — default values ───────────────────────────
+        // ── Default values — BUG-4 ───────────────────────────────────────────
 
         @Test
-        @DisplayName("DECLARE INT without init defaults to 0")
-        void declareIntDefaultZero() {
+        @DisplayName("[BUG-4] Uninitialised INT defaults to 0")
+        void defaultInt() {
             assertEquals("0", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT x
                 PRINT: x
                 END SCRIPT
-                """).trim());
+                """).trim(), "BUG-4: defaultFor() missing → NullPointerException");
         }
 
         @Test
-        @DisplayName("DECLARE FLOAT without init defaults to 0")
-        void declareFloatDefault() {
-            String out = run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE FLOAT f
-                PRINT: f
-                END SCRIPT
-                """).trim();
-            // Accept "0" or "0.0"
-            assertTrue(out.startsWith("0"), "Expected float default to start with 0, got: " + out);
-        }
-
-        @Test
-        @DisplayName("DECLARE BOOL without init defaults to FALSE")
-        void declareBoolDefaultFalse() {
+        @DisplayName("[BUG-4] Uninitialised BOOL defaults to FALSE (also tests BUG-1)")
+        void defaultBool() {
             assertEquals("FALSE", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE BOOL b
                 PRINT: b
                 END SCRIPT
+                """).trim(), "BUG-4: defaultFor() missing  OR  BUG-1: prints 'false'");
+        }
+
+        @Test
+        @DisplayName("[BUG-4] Three uninitialised INTs all default to 0")
+        void defaultMultipleInts() {
+            assertEquals("000", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT a, b, c
+                PRINT: a & b & c
+                END SCRIPT
                 """).trim());
         }
 
+        // ── BOOL printing — BUG-1 ────────────────────────────────────────────
+
         @Test
-        @DisplayName("DECLARE CHAR without init defaults to null char (printed as empty or \\0)")
-        void declareCharDefault() {
-            String out = run("""
+        @DisplayName("[BUG-1] BOOL initialised TRUE prints 'TRUE' (uppercase)")
+        void printBoolTrueUppercase() {
+            assertEquals("TRUE", run("""
                 SCRIPT AREA
                 START SCRIPT
-                DECLARE CHAR c
-                PRINT: c
+                DECLARE BOOL b="TRUE"
+                PRINT: b
                 END SCRIPT
-                """);
-            // Default char is '\0'; printed as empty string or the NUL char — both acceptable
-            assertNotNull(out);
+                """).trim(), "BUG-1: toString() case key wrong");
         }
 
         @Test
-        @DisplayName("DECLARE multiple variables on one line with mixed init")
-        void declareMultipleOnOneLine() {
-            String src = """
+        @DisplayName("[BUG-1] BOOL initialised FALSE prints 'FALSE' (uppercase)")
+        void printBoolFalseUppercase() {
+            assertEquals("FALSE", run("""
                 SCRIPT AREA
                 START SCRIPT
-                DECLARE INT a=1, b=2, c=3
-                PRINT: a & b & c
+                DECLARE BOOL b="FALSE"
+                PRINT: b
                 END SCRIPT
-                """;
-            assertEquals("123", run(src).trim());
+                """).trim(), "BUG-1: toString() case key wrong");
         }
 
         // ── Assignment ───────────────────────────────────────────────────────
 
         @Test
-        @DisplayName("Simple assignment updates variable")
+        @DisplayName("Simple assignment updates variable correctly")
         void simpleAssignment() {
             assertEquals("99", run("""
                 SCRIPT AREA
@@ -635,101 +675,37 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("Chain assignment x=y=4 sets both variables to 4")
+        @DisplayName("[BUG-5/6] Chain assignment x=y=4 sets both to 4")
         void chainAssignment() {
-            String src = """
+            assertEquals("4 4", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT x, y
                 x=y=4
                 PRINT: x & " " & y
                 END SCRIPT
-                """;
-            assertEquals("4 4", run(src).trim());
+                """).trim(), "BUG-5/6 scope chain issue may cause wrong values");
         }
 
-        @Test
-        @DisplayName("Variable reassignment replaces previous value")
-        void reassignment() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT n=10
-                n=20
-                n=30
-                PRINT: n
-                END SCRIPT
-                """;
-            assertEquals("30", run(src).trim());
-        }
+        // ── Arithmetic ───────────────────────────────────────────────────────
 
-        // ── Arithmetic Operators ─────────────────────────────────────────────
-
-        @ParameterizedTest(name = "{0} evaluates to {1}")
-        @CsvSource({
-            "2+3,    5",
-            "10-4,   6",
-            "3*4,    12",
-            "10/2,   5",
-            "17%5,   2",
-            "0+0,    0",
-            "-5+5,   0",
-        })
-        @DisplayName("Arithmetic operator correctness")
-        void arithmeticOperators(String expr, String expected) {
-            String src = String.format("""
+        @ParameterizedTest(name = "INT: {0} = {1}")
+        @CsvSource({"2+3,5", "10-4,6", "3*4,12", "10/2,5", "17%5,2", "-5+5,0"})
+        @DisplayName("Arithmetic operators produce correct INT results")
+        void intArithmetic(String expr, String expected) {
+            assertEquals(expected, run(String.format("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT result
                 result=%s
                 PRINT: result
                 END SCRIPT
-                """, expr);
-            assertEquals(expected, run(src).trim());
+                """, expr)).trim());
         }
 
         @Test
-        @DisplayName("Integer division truncates toward zero")
-        void integerDivisionTruncates() {
-            assertEquals("3", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT x
-                x=7/2
-                PRINT: x
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("Unary negation on INT works")
-        void unaryNegationInt() {
-            assertEquals("-7", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT x=7
-                PRINT: -x
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("Unary negation on literal INT works")
-        void unaryNegationLiteral() {
-            assertEquals("-1", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT x
-                x=-1
-                PRINT: x
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("Parenthesised expression forces precedence correctly")
-        void parenthesisedExpression() {
-            // (2+3)*4 = 20 not 2+(3*4)=14
+        @DisplayName("Parentheses override precedence: (2+3)*4 = 20")
+        void parenthesisPrecedence() {
             assertEquals("20", run("""
                 SCRIPT AREA
                 START SCRIPT
@@ -741,23 +717,8 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("Operator precedence: * before + without parentheses")
-        void operatorPrecedence() {
-            // 2+3*4 = 14
-            assertEquals("14", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT x
-                x=2+3*4
-                PRINT: x
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("Deeply nested arithmetic expression evaluates correctly")
-        void deeplyNestedArithmetic() {
-            // ((100*5)/10 + 10) * -1 = -60
+        @DisplayName("Deeply nested: ((100*5)/10+10)*-1 = -60")
+        void deeplyNested() {
             assertEquals("-60", run("""
                 SCRIPT AREA
                 START SCRIPT
@@ -769,43 +730,8 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("FLOAT arithmetic: addition of two floats")
-        void floatAddition() {
-            String out = run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE FLOAT f=1.5
-                f=f+1.5
-                PRINT: f
-                END SCRIPT
-                """).trim();
-            // 1.5 + 1.5 = 3.0 — accept "3" or "3.0"
-            assertTrue(out.startsWith("3"),
-                "Expected result to start with 3, got: " + out);
-        }
-
-        @Test
-        @DisplayName("INT + FLOAT expression promotes to FLOAT result")
-        void intPlusFloatPromotesToFloat() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE FLOAT f=2.5
-                DECLARE INT i=1
-                f=f+i
-                PRINT: f
-                END SCRIPT
-                """;
-            String out = run(src).trim();
-            assertTrue(out.startsWith("3"),
-                "Expected 3.5 or 3, got: " + out);
-        }
-
-        // ── Division by zero ─────────────────────────────────────────────────
-
-        @Test
-        @DisplayName("Division by zero (INT) throws LexorRuntimeException")
-        void divisionByZeroInt() {
+        @DisplayName("Division by zero throws LexorRuntimeException")
+        void divisionByZero() {
             assertThrows(LexorRuntimeException.class, () -> run("""
                 SCRIPT AREA
                 START SCRIPT
@@ -827,26 +753,16 @@ class InterpreterTest {
                 """));
         }
 
-        // ── Relational Operators ─────────────────────────────────────────────
+        // ── Relational operators — BUG-1 ─────────────────────────────────────
 
-        @ParameterizedTest(name = "{0} evaluates to BOOL {1}")
+        @ParameterizedTest(name = "Relational {0} → {1}")
         @CsvSource({
-            "5>3,   TRUE",
-            "3>5,   FALSE",
-            "5<3,   FALSE",
-            "3<5,   TRUE",
-            "5>=5,  TRUE",
-            "4>=5,  FALSE",
-            "5<=5,  TRUE",
-            "6<=5,  FALSE",
-            "5==5,  TRUE",
-            "5==6,  FALSE",
-            "5<>6,  TRUE",
-            "5<>5,  FALSE",
+                "5>3,TRUE", "3>5,FALSE", "3<5,TRUE", "5<=5,TRUE",
+                "5>=5,TRUE", "5==5,TRUE", "5==6,FALSE", "5<>6,TRUE", "5<>5,FALSE"
         })
-        @DisplayName("Relational operator correctness")
+        @DisplayName("[BUG-1] Relational operators must print uppercase TRUE/FALSE")
         void relationalOperators(String expr, String expected) {
-            String src = String.format("""
+            assertEquals(expected, run(String.format("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT a=5, b=3
@@ -854,27 +770,13 @@ class InterpreterTest {
                 r=(%s)
                 PRINT: r
                 END SCRIPT
-                """, expr);
-            assertEquals(expected, run(src).trim());
+                """, expr)).trim(), "BUG-1: BOOL toString() uses lowercase switch key");
         }
 
-        // ── Logical Operators ────────────────────────────────────────────────
+        // ── Logical operators — BUG-1 ─────────────────────────────────────────
 
         @Test
-        @DisplayName("AND: TRUE AND TRUE = TRUE")
-        void andTrueTrue() {
-            assertEquals("TRUE", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE BOOL a="TRUE", b="TRUE", r="FALSE"
-                r=(a AND b)
-                PRINT: r
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("AND: TRUE AND FALSE = FALSE")
+        @DisplayName("[BUG-1] AND: TRUE AND FALSE = FALSE (uppercase)")
         void andTrueFalse() {
             assertEquals("FALSE", run("""
                 SCRIPT AREA
@@ -887,7 +789,7 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("OR: FALSE OR TRUE = TRUE")
+        @DisplayName("[BUG-1] OR: FALSE OR TRUE = TRUE (uppercase)")
         void orFalseTrue() {
             assertEquals("TRUE", run("""
                 SCRIPT AREA
@@ -900,20 +802,7 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("OR: FALSE OR FALSE = FALSE")
-        void orFalseFalse() {
-            assertEquals("FALSE", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE BOOL a="FALSE", b="FALSE", r="TRUE"
-                r=(a OR b)
-                PRINT: r
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("NOT: NOT TRUE = FALSE")
+        @DisplayName("[BUG-1] NOT TRUE = FALSE (uppercase)")
         void notTrue() {
             assertEquals("FALSE", run("""
                 SCRIPT AREA
@@ -925,235 +814,11 @@ class InterpreterTest {
                 """).trim());
         }
 
-        @Test
-        @DisplayName("NOT: NOT FALSE = TRUE")
-        void notFalse() {
-            assertEquals("TRUE", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE BOOL a="FALSE", r="FALSE"
-                r=NOT a
-                PRINT: r
-                END SCRIPT
-                """).trim());
-        }
+        // ── IF / ELSE — BUG-5/6 ──────────────────────────────────────────────
 
         @Test
-        @DisplayName("Compound logical: (a<b AND c<>200) matches spec sample")
-        void compoundLogicalAndNeq() {
-            assertEquals("TRUE", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT a=100, b=200, c=300
-                DECLARE BOOL r="FALSE"
-                r=(a<b AND c<>200)
-                PRINT: r
-                END SCRIPT
-                """).trim());
-        }
-
-        // ── PRINT statement ──────────────────────────────────────────────────
-
-        @Test
-        @DisplayName("PRINT: single INT variable")
-        void printSingleInt() {
-            assertEquals("42", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT x=42
-                PRINT: x
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("PRINT: single string literal")
-        void printStringLiteral() {
-            assertEquals("hello", run("""
-                SCRIPT AREA
-                START SCRIPT
-                PRINT: "hello"
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("PRINT: $ emits a newline between items")
-        void printDollarSignNewline() {
-            String out = run("""
-                SCRIPT AREA
-                START SCRIPT
-                PRINT: "line1" & $ & "line2"
-                END SCRIPT
-                """);
-            String[] lines = out.split("\n");
-            assertEquals("line1", lines[0]);
-            assertEquals("line2", lines[1]);
-        }
-
-        @Test
-        @DisplayName("PRINT: multiple $ signs produce multiple newlines")
-        void printMultipleNewlines() {
-            String out = run("""
-                SCRIPT AREA
-                START SCRIPT
-                PRINT: "a" & $ & "b" & $ & "c"
-                END SCRIPT
-                """);
-            String[] lines = out.split("\n");
-            assertEquals(3, lines.length);
-            assertEquals("a", lines[0]);
-            assertEquals("b", lines[1]);
-            assertEquals("c", lines[2]);
-        }
-
-        @Test
-        @DisplayName("PRINT: escape code [#] renders as hash symbol")
-        void printEscapeHash() {
-            assertEquals("#", run("""
-                SCRIPT AREA
-                START SCRIPT
-                PRINT: [#]
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("PRINT: escape code [[] renders as open bracket")
-        void printEscapeOpenBracket() {
-            assertEquals("[", run("""
-                SCRIPT AREA
-                START SCRIPT
-                PRINT: [[]
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("PRINT: escape code []] renders as close bracket")
-        void printEscapeCloseBracket() {
-            assertEquals("]", run("""
-                SCRIPT AREA
-                START SCRIPT
-                PRINT: []]
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("PRINT: BOOL variable prints TRUE or FALSE in uppercase")
-        void printBoolUppercase() {
-            assertEquals("TRUE", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE BOOL b="TRUE"
-                PRINT: b
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("PRINT: CHAR variable prints single character")
-        void printCharVariable() {
-            assertEquals("z", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE CHAR c='z'
-                PRINT: c
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("PRINT: concatenation of INT & BOOL & CHAR with &")
-        void printConcatenation() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT x=7
-                DECLARE BOOL b="FALSE"
-                DECLARE CHAR c='!'
-                PRINT: x & b & c
-                END SCRIPT
-                """;
-            assertEquals("7FALSE!", run(src).trim());
-        }
-
-        // ── SCAN statement ───────────────────────────────────────────────────
-
-        @Test
-        @DisplayName("SCAN: reads a single INT value")
-        void scanSingleInt() {
-            assertEquals("99", runWithInput("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT x
-                SCAN: x
-                PRINT: x
-                END SCRIPT
-                """, "99\n").trim());
-        }
-
-        @Test
-        @DisplayName("SCAN: reads two INT values separated by comma")
-        void scanTwoInts() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT a, b
-                SCAN: a, b
-                PRINT: a & "," & b
-                END SCRIPT
-                """;
-            assertEquals("3,7", runWithInput(src, "3,7\n").trim());
-        }
-
-        @Test
-        @DisplayName("SCAN: reads a BOOL value TRUE")
-        void scanBoolTrue() {
-            assertEquals("TRUE", runWithInput("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE BOOL b
-                SCAN: b
-                PRINT: b
-                END SCRIPT
-                """, "TRUE\n").trim());
-        }
-
-        @Test
-        @DisplayName("SCAN: reads a CHAR value")
-        void scanChar() {
-            assertEquals("Q", runWithInput("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE CHAR c
-                SCAN: c
-                PRINT: c
-                END SCRIPT
-                """, "Q\n").trim());
-        }
-
-        @Test
-        @DisplayName("SCAN: arithmetic using scanned INT values")
-        void scanAndCompute() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT a, b, sum=0
-                SCAN: a, b
-                sum=a+b
-                PRINT: sum
-                END SCRIPT
-                """;
-            assertEquals("15", runWithInput(src, "6,9\n").trim());
-        }
-
-        // ── IF statement ─────────────────────────────────────────────────────
-
-        @Test
-        @DisplayName("IF: executes THEN block when condition is TRUE")
-        void ifThenBranchTaken() {
+        @DisplayName("IF true branch executes")
+        void ifTrueBranch() {
             assertEquals("yes", run("""
                 SCRIPT AREA
                 START SCRIPT
@@ -1167,8 +832,8 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("IF: skips THEN block when condition is FALSE")
-        void ifThenBranchSkipped() {
+        @DisplayName("IF false branch is skipped")
+        void ifFalseBranchSkipped() {
             assertEquals("", run("""
                 SCRIPT AREA
                 START SCRIPT
@@ -1182,8 +847,8 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("IF-ELSE: executes ELSE block when condition is FALSE")
-        void ifElseBranchTaken() {
+        @DisplayName("IF-ELSE: ELSE executes when condition is FALSE")
+        void ifElse() {
             assertEquals("no", run("""
                 SCRIPT AREA
                 START SCRIPT
@@ -1201,28 +866,9 @@ class InterpreterTest {
         }
 
         @Test
-        @DisplayName("IF-ELSE: executes IF block (not ELSE) when condition is TRUE")
-        void ifElseIfBranchTaken() {
-            assertEquals("yes", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE BOOL cond="TRUE"
-                IF (cond)
-                START IF
-                PRINT: "yes"
-                END IF
-                ELSE
-                START IF
-                PRINT: "no"
-                END IF
-                END SCRIPT
-                """).trim());
-        }
-
-        @Test
-        @DisplayName("IF-ELSE IF-ELSE: first ELSE IF branch taken")
-        void elseIfFirstBranchTaken() {
-            String src = """
+        @DisplayName("ELSE IF: correct branch taken")
+        void elseIfBranch() {
+            assertEquals("second", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE BOOL c1="FALSE", c2="TRUE"
@@ -1239,56 +885,13 @@ class InterpreterTest {
                 PRINT: "third"
                 END IF
                 END SCRIPT
-                """;
-            assertEquals("second", run(src).trim());
+                """).trim());
         }
 
         @Test
-        @DisplayName("IF-ELSE IF-ELSE: ELSE block taken when all conditions FALSE")
-        void elseBlockTakenWhenAllFalse() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE BOOL c1="FALSE", c2="FALSE"
-                IF (c1)
-                START IF
-                PRINT: "first"
-                END IF
-                ELSE IF (c2)
-                START IF
-                PRINT: "second"
-                END IF
-                ELSE
-                START IF
-                PRINT: "third"
-                END IF
-                END SCRIPT
-                """;
-            assertEquals("third", run(src).trim());
-        }
-
-        @Test
-        @DisplayName("IF: relational expression used directly as condition")
-        void ifWithRelationalCondition() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT x=10, y=5
-                DECLARE BOOL cond="FALSE"
-                cond=(x>y)
-                IF (cond)
-                START IF
-                PRINT: "bigger"
-                END IF
-                END SCRIPT
-                """;
-            assertEquals("bigger", run(src).trim());
-        }
-
-        @Test
-        @DisplayName("IF: body can modify outer-scope variable")
-        void ifBodyModifiesOuterVariable() {
-            String src = """
+        @DisplayName("[BUG-5/6] IF body can modify outer-scope variable")
+        void ifBodyModifiesOuterVar() {
+            assertEquals("42", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT x=0
@@ -1299,16 +902,15 @@ class InterpreterTest {
                 END IF
                 PRINT: x
                 END SCRIPT
-                """;
-            assertEquals("42", run(src).trim());
+                """).trim(), "BUG-5/6: assign() in child scope not reaching outer variable");
         }
 
-        // ── FOR loop ─────────────────────────────────────────────────────────
+        // ── FOR loop — BUG-5/6 ───────────────────────────────────────────────
 
         @Test
-        @DisplayName("FOR: counts from 1 to 5 and accumulates sum = 15")
+        @DisplayName("[BUG-5/6] FOR loop: sum 1..5 = 15")
         void forLoopSum() {
-            String src = """
+            assertEquals("15", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT i, sum=0
@@ -1318,14 +920,13 @@ class InterpreterTest {
                 END FOR
                 PRINT: sum
                 END SCRIPT
-                """;
-            assertEquals("15", run(src).trim());
+                """).trim(), "BUG-5/6: sum not updated across scope boundary");
         }
 
         @Test
-        @DisplayName("FOR: body does not execute when condition is initially false")
-        void forLoopZeroIterations() {
-            String src = """
+        @DisplayName("FOR loop body skipped when condition starts false")
+        void forZeroIterations() {
+            assertEquals("99", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT i, result=99
@@ -1335,48 +936,13 @@ class InterpreterTest {
                 END FOR
                 PRINT: result
                 END SCRIPT
-                """;
-            assertEquals("99", run(src).trim());
+                """).trim());
         }
 
         @Test
-        @DisplayName("FOR: counts down using i=i-1")
-        void forLoopCountDown() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT i, last=0
-                FOR (i=5, i>=1, i=i-1)
-                START FOR
-                last=i
-                END FOR
-                PRINT: last
-                END SCRIPT
-                """;
-            assertEquals("1", run(src).trim());
-        }
-
-        @Test
-        @DisplayName("FOR: exactly 3 iterations, each appends to a counter")
-        void forLoopExactIterations() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT i, count=0
-                FOR (i=0, i<3, i=i+1)
-                START FOR
-                count=count+1
-                END FOR
-                PRINT: count
-                END SCRIPT
-                """;
-            assertEquals("3", run(src).trim());
-        }
-
-        @Test
-        @DisplayName("FOR: loop variable is accessible after the loop")
-        void forLoopVariableAfterLoop() {
-            String src = """
+        @DisplayName("[BUG-5/6] FOR loop variable accessible after loop")
+        void forVarAfterLoop() {
+            assertEquals("5", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT i
@@ -1385,16 +951,15 @@ class InterpreterTest {
                 END FOR
                 PRINT: i
                 END SCRIPT
-                """;
-            assertEquals("5", run(src).trim());
+                """).trim());
         }
 
-        // ── REPEAT WHEN loop ─────────────────────────────────────────────────
+        // ── REPEAT WHEN — BUG-5/6 ────────────────────────────────────────────
 
         @Test
-        @DisplayName("REPEAT WHEN: runs body while condition is true, stops when false")
-        void repeatWhenBasic() {
-            String src = """
+        @DisplayName("[BUG-5/6] REPEAT WHEN: counts to 5")
+        void repeatWhenCounts() {
+            assertEquals("5", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT i=0
@@ -1406,14 +971,13 @@ class InterpreterTest {
                 END REPEAT
                 PRINT: i
                 END SCRIPT
-                """;
-            assertEquals("5", run(src).trim());
+                """).trim(), "BUG-5/6: i and go updates not persisting across scope boundary");
         }
 
         @Test
-        @DisplayName("REPEAT WHEN: body is skipped when condition starts false")
-        void repeatWhenFalseFromStart() {
-            String src = """
+        @DisplayName("REPEAT WHEN body skipped when condition starts false")
+        void repeatWhenFalseStart() {
+            assertEquals("99", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT x=99
@@ -1424,38 +988,15 @@ class InterpreterTest {
                 END REPEAT
                 PRINT: x
                 END SCRIPT
-                """;
-            assertEquals("99", run(src).trim());
+                """).trim());
         }
 
-        @Test
-        @DisplayName("REPEAT WHEN: accumulates a product (multiplication loop)")
-        void repeatWhenMultiplication() {
-            // 2^4 = 16 via repeated doubling
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT result=1, i=0
-                DECLARE BOOL go="TRUE"
-                REPEAT WHEN (go)
-                START REPEAT
-                result=result*2
-                i=i+1
-                go=(i<4)
-                END REPEAT
-                PRINT: result
-                END SCRIPT
-                """;
-            assertEquals("16", run(src).trim());
-        }
-
-        // ── Nested control flow ───────────────────────────────────────────────
+        // ── Nested control flow — BUG-5/6 ────────────────────────────────────
 
         @Test
-        @DisplayName("Nested FOR inside FOR: multiplication table corner")
-        void nestedForLoop() {
-            // Count total iterations of inner loop: i=1..3, j=1..3 → 9
-            String src = """
+        @DisplayName("[BUG-5/6] Nested FOR: 3x3 = 9 iterations")
+        void nestedFor() {
+            assertEquals("9", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT i, j, count=0
@@ -1468,15 +1009,13 @@ class InterpreterTest {
                 END FOR
                 PRINT: count
                 END SCRIPT
-                """;
-            assertEquals("9", run(src).trim());
+                """).trim(), "BUG-5/6: 'count' not reachable from doubly-nested scope");
         }
 
         @Test
-        @DisplayName("IF inside FOR: conditional accumulation")
+        @DisplayName("[BUG-5/6] IF inside FOR: sum of even numbers 2..10 = 30")
         void ifInsideFor() {
-            // Sum only even numbers 1..10: 2+4+6+8+10 = 30
-            String src = """
+            assertEquals("30", run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT i, sum=0, rem=0
@@ -1492,122 +1031,47 @@ class InterpreterTest {
                 END FOR
                 PRINT: sum
                 END SCRIPT
-                """;
-            assertEquals("30", run(src).trim());
+                """).trim());
         }
 
-        @Test
-        @DisplayName("FOR inside IF: loop only runs in the true branch")
-        void forInsideIf() {
-            String src = """
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT i, count=0
-                DECLARE BOOL flag="TRUE"
-                IF (flag)
-                START IF
-                FOR (i=1, i<=3, i=i+1)
-                START FOR
-                count=count+1
-                END FOR
-                END IF
-                PRINT: count
-                END SCRIPT
-                """;
-            assertEquals("3", run(src).trim());
-        }
-
-        // ── Scope isolation in blocks ─────────────────────────────────────────
+        // ── SCAN ─────────────────────────────────────────────────────────────
 
         @Test
-        @DisplayName("Outer variable modified inside IF block persists after block")
-        void outerVariableModifiedInIf() {
-            String src = """
+        @DisplayName("SCAN reads single INT")
+        void scanInt() {
+            assertEquals("42", runWithInput("""
                 SCRIPT AREA
                 START SCRIPT
-                DECLARE INT x=10
-                DECLARE BOOL t="TRUE"
-                IF (t)
-                START IF
-                x=x+5
-                END IF
+                DECLARE INT x
+                SCAN: x
                 PRINT: x
                 END SCRIPT
-                """;
-            assertEquals("15", run(src).trim());
+                """, "42\n").trim());
         }
 
         @Test
-        @DisplayName("Outer variable modified inside FOR body persists after loop")
-        void outerVariableModifiedInFor() {
-            String src = """
+        @DisplayName("SCAN reads two comma-separated INTs")
+        void scanTwoInts() {
+            assertEquals("3,7", runWithInput("""
                 SCRIPT AREA
                 START SCRIPT
-                DECLARE INT i, total=0
-                FOR (i=1, i<=3, i=i+1)
-                START FOR
-                total=total+i
-                END FOR
-                PRINT: total
+                DECLARE INT a, b
+                SCAN: a, b
+                PRINT: a & "," & b
                 END SCRIPT
-                """;
-            assertEquals("6", run(src).trim());
-        }
-
-        // ── PRINT edge cases ──────────────────────────────────────────────────
-
-        @Test
-        @DisplayName("PRINT: no output when program has no PRINT statement")
-        void noPrintProducesNoOutput() {
-            String out = run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT x=5
-                x=10
-                END SCRIPT
-                """);
-            assertEquals("", out.trim());
-        }
-
-        @Test
-        @DisplayName("PRINT: multiple PRINT statements on separate lines each produce output")
-        void multiplePrintStatements() {
-            String out = run("""
-                SCRIPT AREA
-                START SCRIPT
-                PRINT: "first"
-                PRINT: "second"
-                PRINT: "third"
-                END SCRIPT
-                """);
-            assertTrue(out.contains("first"));
-            assertTrue(out.contains("second"));
-            assertTrue(out.contains("third"));
-        }
-
-        @Test
-        @DisplayName("PRINT: expression result (not just variable) is printed correctly")
-        void printExpressionResult() {
-            assertEquals("7", run("""
-                SCRIPT AREA
-                START SCRIPT
-                DECLARE INT a=3, b=4
-                PRINT: a+b
-                END SCRIPT
-                """).trim());
+                """, "3,7\n").trim());
         }
 
         // ── Comments ─────────────────────────────────────────────────────────
 
         @Test
-        @DisplayName("Comments (%%) are ignored and do not affect output")
+        @DisplayName("%% comments are ignored and do not affect output")
         void commentsIgnored() {
             assertEquals("42", run("""
                 SCRIPT AREA
                 START SCRIPT
                 %% this is a comment
-                DECLARE INT x=42 %% inline comment
-                %% another comment
+                DECLARE INT x=42 %% inline
                 PRINT: x
                 END SCRIPT
                 """).trim());

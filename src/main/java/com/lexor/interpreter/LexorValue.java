@@ -28,7 +28,7 @@ package com.lexor.interpreter;
 // =============================================================================
 
 // TODO: Import com.lexor.error.LexorRuntimeException
-import com.lexor.error.LexorException;
+import com.lexor.error.LexorRuntimeException;
 
 import java.util.Objects;
 
@@ -105,7 +105,7 @@ public class LexorValue {
     public int asInt(){
         if(value instanceof Integer i) return i;
         if(value instanceof Float f) return f.intValue();
-        throw new LexorException("Type " + type + " is not an integer");
+        throw new LexorRuntimeException("Cannot read '" + type + "' value as INT", 0, 0);
 
     }
 // TODO: public float asFloat()
@@ -122,7 +122,7 @@ public class LexorValue {
     public float asFloat(){
         if(value instanceof Float f) return f;
         if(value instanceof Integer i) return i.floatValue();
-        throw new LexorException("Type " + type + " is not a float");
+        throw new LexorRuntimeException("Cannot read '" + type + "' value as FLOAT", 0, 0);
     }
 // TODO: public boolean asBool()
 //
@@ -137,7 +137,7 @@ public class LexorValue {
 //              and for AND/OR/NOT logical operations.
     public boolean asBool(){
         if(value instanceof Boolean b) return b;
-        throw new LexorException("Type " + type + " is not a boolean");
+        throw new LexorRuntimeException("Cannot read '" + type + "' value as BOOL", 0, 0);
     }
 // TODO: public char asChar()
 //
@@ -151,7 +151,7 @@ public class LexorValue {
 //   Called by: Interpreter when printing a CHAR variable.
     public char asChar(){
         if(value instanceof Character c) return c;
-        throw new LexorException("Type " + type + " is not a character");
+        throw new LexorRuntimeException("Cannot read '" + type + "' value as CHAR", 0, 0);
     }
 // =============================================================================
 // toString() OVERRIDE
@@ -179,12 +179,27 @@ public class LexorValue {
     @Override
     public String toString(){
         switch(type){
-            case "int": return String.valueOf((int)(asInt()));
-            case "float": return String.valueOf((float)(asFloat()));
-            case "bool": return asBool() ? "TRUE" : "FALSE";
-            case "char": return String.valueOf(asChar());
+            case "INT":   return String.valueOf(asInt());
+            case "FLOAT": return String.valueOf(asFloat());
+            case "CHAR":  return String.valueOf(asChar());
+            case "BOOL":  return asBool() ? "TRUE" : "FALSE";
             default: return String.valueOf(value);
         }
+    }
+
+    public static LexorValue defaultFor(String type) {
+        switch (type) {
+            case "INT":   return ofInt(0);
+            case "FLOAT": return ofFloat(0.0f);
+            case "CHAR":  return ofChar('\0');
+            case "BOOL":  return ofBool(false);
+            default: throw new LexorRuntimeException(
+                    "No default value for unknown type '" + type + "'", 0, 0);
+        }
+    }
+
+    public Object getRawValue() {
+        return value;
     }
 // =============================================================================
 // equals() AND hashCode() (OPTIONAL BUT RECOMMENDED)

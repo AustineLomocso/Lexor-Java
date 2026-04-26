@@ -119,9 +119,9 @@ public class Environment {
 //
 //   The chain walk ensures that a variable declared in the global scope is
 //   accessible from any nested block, no matter how deep.
-    public LexorValue getValue(String name){
+    public LexorValue get(String name){
         if(store.containsKey(name)) return store.get(name);
-        if(parent != null) return parent.getValue(name);
+        if(parent != null) return parent.get(name);
         throw new LexorRuntimeException("Undefined variable "+name+" at ", 0, 0);
     }
 // TODO: public void assign(String name, LexorValue value)
@@ -199,9 +199,6 @@ public class Environment {
         return sb.toString();
     }
 
-    public LexorValue get(String varName) {
-        return store.get(varName);
-    }
 // =============================================================================
 // REPL PERSISTENCE NOTE:
 // =============================================================================
