@@ -8,72 +8,48 @@ START SCRIPT
 
 %% --- Variable Declarations (covers DECLARE, all four TYPE keywords,
 %%     INT_LITERAL, FLOAT_LITERAL, CHAR_LITERAL, BOOL_LITERAL, IDENTIFIER) ---
-DECLARE INT    x, y, z=5
-DECLARE FLOAT  pi=3.14
-DECLARE CHAR   letter='n'
-DECLARE BOOL   flag="TRUE"
-DECLARE BOOL   flag2="FALSE"
-DECLARE INT    a=100, b=200, c=300
+        DECLARE INT a, b, c, total, i, j
+        DECLARE INT math_result
+        DECLARE BOOL complex_flag
 
-%% --- Simple assignment (covers ASSIGN, chained assignment) ---
-x=4
-y=x
-x=y=10
+        a = b = c = 10
+        math_result = a + (b * c) / 2 - (c % 3)
+        PRINT: "1. Math Precedence (should be 59): " & math_result & $
 
-%% --- Arithmetic operators: + - * / % ---
-z = (a + b) * 2
-z = (a - b) / 4
-z = c % 3
-z = ((a * 5) / 10 + 10) * -1
+        complex_flag = (a == 10 AND b <> 20) OR NOT (c <= 5)
+        PRINT: "2. Complex Logic (should be TRUE): " & complex_flag & $
 
-%% --- Relational operators: > < >= <= == <> ---
-flag = (a > b)
-flag = (a < b)
-flag = (a >= 100)
-flag = (b <= 200)
-flag = (a == 100)
-flag = (c <> 200)
+        %% 4. Complex String Escapes & Concatenation
+        %% Tests if multiple ampersands and escapes crash the token stream
+        PRINT: "4. Escape Check: " & [[] & "brackets" & []] & " and " & [#] & $
 
-%% --- Logical operators: AND OR NOT ---
-flag = (a < b AND c <> 200)
-flag = (a < b OR  c == 300)
-flag = NOT flag2
+        %% 5. Nested Control Flow (The Ultimate Strictness Test)
+        %% Tests if your AST tree-walker can handle an IF and a REPEAT inside a FOR loop!
+        PRINT: "5. Starting Nested Loops Test:" & $
+        total = 0
 
-%% --- PRINT: covers AMPERSAND, DOLLAR, LBRACKET/RBRACKET escape codes,
-%%     STRING_LITERAL, VariableNode references ---
-PRINT: x & flag & z & $ & letter
-PRINT: "hello" & $ & "world"
-PRINT: [[] & z & []]
-PRINT: x & [#] & "last"
+        FOR (i=1, i<=3, i=i+1)
+        START FOR
+            IF (i % 2 == 0)
+            START IF
+                PRINT: "   Even i: " & i & $
+                total = total + i
+            END IF
+            ELSE
+            START IF
+                PRINT: "   Odd i: " & i & $
 
-%% --- SCAN: covers comma-separated variable targets ---
-SCAN: x, y
+                %% Nesting a REPEAT inside an ELSE inside a FOR
+                j = 0
+                REPEAT WHEN (j < i)
+                START REPEAT
+                    total = total + 1
+                    j = j + 1
+                END REPEAT
 
-%% --- IF / ELSE IF / ELSE (covers KEYWORD_IF, KEYWORD_ELSE, KEYWORD_START, KEYWORD_END) ---
-IF (x == 4)
-START IF
-    PRINT: "x is four"
-END IF
-ELSE IF (x == 10)
-START IF
-    PRINT: "x is ten"
-END IF
-ELSE
-START IF
-    PRINT: "x is something else"
-END IF
+            END IF
+        END FOR
 
-%% --- FOR loop (covers KEYWORD_FOR, comma separators inside header) ---
-FOR (x=0, x<5, x=x+1)
-START FOR
-    PRINT: x
-END FOR
-
-%% --- REPEAT WHEN loop (covers KEYWORD_REPEAT, KEYWORD_WHEN) ---
-REPEAT WHEN (x < 10)
-START REPEAT
-    x = x + 1
-    PRINT: x
-END REPEAT
-
+        PRINT: "   -> Nested Loop Total (should be 6): " & total & $
+        PRINT: "STRESS TEST COMPLETE!" & $
 END SCRIPT
