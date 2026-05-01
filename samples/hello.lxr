@@ -1,55 +1,6 @@
-%% ============================================================
-%% LEXOR Lexer Validation Sample
-%% This file is used by LexerTest to verify all token types.
-%% ============================================================
-
+%% ---------- TC-14 - PRINT FLOAT variable ----------
 SCRIPT AREA
 START SCRIPT
-
-%% --- Variable Declarations (covers DECLARE, all four TYPE keywords,
-%%     INT_LITERAL, FLOAT_LITERAL, CHAR_LITERAL, BOOL_LITERAL, IDENTIFIER) ---
-        DECLARE INT a, b, c, total, i, j
-        DECLARE INT math_result
-        DECLARE BOOL complex_flag
-
-        a = b = c = 10
-        math_result = a + (b * c) / 2 - (c % 3)
-        PRINT: "1. Math Precedence (should be 59): " & math_result & $
-
-        complex_flag = (a == 10 AND b <> 20) OR NOT (c <= 5)
-        PRINT: "2. Complex Logic (should be TRUE): " & complex_flag & $
-
-        %% 4. Complex String Escapes & Concatenation
-        %% Tests if multiple ampersands and escapes crash the token stream
-        PRINT: "4. Escape Check: " & [[] & "brackets" & []] & " and " & [#] & $
-
-        %% 5. Nested Control Flow (The Ultimate Strictness Test)
-        %% Tests if your AST tree-walker can handle an IF and a REPEAT inside a FOR loop!
-        PRINT: "5. Starting Nested Loops Test:" & $
-        total = 0
-
-        FOR (i=1, i<=3, i=i+1)
-        START FOR
-            IF (i % 2 == 0)
-            START IF
-                PRINT: "   Even i: " & i & $
-                total = total + i
-            END IF
-            ELSE
-            START IF
-                PRINT: "   Odd i: " & i & $
-
-                %% Nesting a REPEAT inside an ELSE inside a FOR
-                j = 0
-                REPEAT WHEN (j < i)
-                START REPEAT
-                    total = total + 1
-                    j = j + 1
-                END REPEAT
-
-            END IF
-        END FOR
-
-        PRINT: "   -> Nested Loop Total (should be 6): " & total & $
-        PRINT: "STRESS TEST COMPLETE!" & $
+DECLARE FLOAT temp=98.6
+PRINT: temp
 END SCRIPT

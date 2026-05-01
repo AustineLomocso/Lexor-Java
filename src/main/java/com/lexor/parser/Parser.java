@@ -415,6 +415,14 @@ public class Parser {
         consume(TokenType.KEYWORD_END, "END");
         consume(TokenType.KEYWORD_SCRIPT, "SCRIPT");
 
+        skipNewlines();
+        if (!isAtEnd()) {
+            throw error(
+                    "Unexpected token '" + peek().getLexeme() +
+                            "' after END SCRIPT — only one END SCRIPT is allowed"
+            );
+        }
+
         logger.debug("Program parsed: {} declarations, {} statements",
                 declarations.size(), statements.size());
 
