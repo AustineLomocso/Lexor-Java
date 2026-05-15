@@ -57,7 +57,7 @@ class LexerTest {
 
     /** Convenience wrapper so every test can stay on one line. */
     private List<Token> lex(String source) {
-        return new Lexer(source).tokenize();
+        return new Lexer(source). tokenize();
     }
 
     /** Returns the type of the token at position idx in the list. */
@@ -390,6 +390,71 @@ class LexerTest {
             List<Token> tokens = lex("[#]");
             assertEquals(TokenType.LBRACKET, typeAt(tokens, 0));
             assertEquals(TokenType.RBRACKET, typeAt(tokens, 2));
+        }
+    }
+
+    // =========================================================================
+    // 8b. PUNCTUATION SYMBOLS
+    // =========================================================================
+
+    @Nested
+    @DisplayName("Punctuation symbols")
+    class PunctuationSymbols {
+
+        @Test
+        @DisplayName(": produces COLON (used after PRINT and SCAN)")
+        void colonToken() {
+            List<Token> tokens = lex(":");
+            assertEquals(TokenType.COLON, typeAt(tokens, 0));
+        }
+
+        @Test
+        @DisplayName("( produces LPAREN")
+        void lparenToken() {
+            List<Token> tokens = lex("(");
+            assertEquals(TokenType.LPAREN, typeAt(tokens, 0));
+        }
+
+        @Test
+        @DisplayName(") produces RPAREN")
+        void rparenToken() {
+            List<Token> tokens = lex(")");
+            assertEquals(TokenType.RPAREN, typeAt(tokens, 0));
+        }
+
+        @Test
+        @DisplayName(", produces COMMA (used in FOR header and SCAN)")
+        void commaToken() {
+            List<Token> tokens = lex(",");
+            assertEquals(TokenType.COMMA, typeAt(tokens, 0));
+        }
+
+        @Test
+        @DisplayName("PRINT: tokenizes as KEYWORD_PRINT then COLON")
+        void colonAfterPrint() {
+            List<Token> tokens = lex("PRINT:");
+            assertEquals(TokenType.KEYWORD_PRINT, typeAt(tokens, 0));
+            assertEquals(TokenType.COLON,         typeAt(tokens, 1));
+        }
+
+        @Test
+        @DisplayName("SCAN: tokenizes as KEYWORD_SCAN then COLON")
+        void colonAfterScan() {
+            List<Token> tokens = lex("SCAN:");
+            assertEquals(TokenType.KEYWORD_SCAN, typeAt(tokens, 0));
+            assertEquals(TokenType.COLON,        typeAt(tokens, 1));
+        }
+
+        @Test
+        @DisplayName("FOR header punctuation: ( x=0 , x<5 , x=x+1 ) has LPAREN, two COMMAs, RPAREN")
+        void forHeaderPunctuation() {
+            List<Token> tokens = lex("(x=0,x<5,x=x+1)");
+            assertEquals(TokenType.LPAREN, typeAt(tokens, 0));
+            long commaCount = tokens.stream()
+                    .filter(t -> t.getType() == TokenType.COMMA).count();
+            assertEquals(2, commaCount, "FOR header has exactly two commas");
+            assertEquals(TokenType.RPAREN,
+                    tokens.get(tokens.size() - 2).getType());
         }
     }
 

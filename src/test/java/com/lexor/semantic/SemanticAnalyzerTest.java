@@ -1058,6 +1058,46 @@ class SemanticAnalyzerTest {
         ));
     }
 
+    @Test
+    @Order(146)
+    @DisplayName("R12 PASS — unary plus on INT variable passes (spec: + is a unary operator)")
+    void r12_unaryPlus_int_passes() {
+        assertValid(program(
+                List.of(decl("INT", "x"), decl("INT", "y")),
+                List.of(assign("y", unary("+", var("x"))))
+        ));
+    }
+
+    @Test
+    @Order(147)
+    @DisplayName("R12 PASS — unary plus on FLOAT variable passes")
+    void r12_unaryPlus_float_passes() {
+        assertValid(program(
+                List.of(decl("FLOAT", "f"), decl("FLOAT", "g")),
+                List.of(assign("g", unary("+", var("f"))))
+        ));
+    }
+
+    @Test
+    @Order(148)
+    @DisplayName("R12 FAIL — unary plus on BOOL variable throws")
+    void r12_unaryPlus_bool_throws() {
+        assertInvalid(program(
+                List.of(decl("BOOL", "b"), decl("INT", "x")),
+                List.of(assign("x", unary("+", var("b"))))
+        ));
+    }
+
+    @Test
+    @Order(149)
+    @DisplayName("R12 FAIL — unary plus on CHAR variable throws")
+    void r12_unaryPlus_char_throws() {
+        assertInvalid(program(
+                List.of(decl("CHAR", "c"), decl("INT", "x")),
+                List.of(assign("x", unary("+", var("c"))))
+        ));
+    }
+
     // =========================================================================
     // SECTION 14 — R13: NOT REQUIRES BOOL OPERAND
     // =========================================================================
@@ -1320,6 +1360,36 @@ class SemanticAnalyzerTest {
         assertInvalid(program(
                 List.of(decl("INT", "intVar")),
                 List.of(ifWithElseIf(boolLit(false), Collections.emptyList(), badClause))
+        ));
+    }
+
+    @Test
+    @Order(176)
+    @DisplayName("R15 PASS — two ELSE IF clauses both with valid BOOL conditions pass")
+    void r15_twoElseIf_bothValid_passes() {
+        IfNode.ElseIfClause clause1 = new IfNode.ElseIfClause(
+                var("flag1"), Collections.emptyList());
+        IfNode.ElseIfClause clause2 = new IfNode.ElseIfClause(
+                var("flag2"), Collections.emptyList());
+        assertValid(program(
+                List.of(decl("BOOL", "flag1"), decl("BOOL", "flag2")),
+                List.of(new IfNode(1, boolLit(false), Collections.emptyList(),
+                        List.of(clause1, clause2), null))
+        ));
+    }
+
+    @Test
+    @Order(177)
+    @DisplayName("R15 FAIL — second of two ELSE IF clauses has INT condition, throws")
+    void r15_twoElseIf_secondInvalid_throws() {
+        IfNode.ElseIfClause clause1 = new IfNode.ElseIfClause(
+                var("flag"), Collections.emptyList());
+        IfNode.ElseIfClause clause2 = new IfNode.ElseIfClause(
+                var("n"), Collections.emptyList()); // INT, not BOOL
+        assertInvalid(program(
+                List.of(decl("BOOL", "flag"), decl("INT", "n")),
+                List.of(new IfNode(1, boolLit(true), Collections.emptyList(),
+                        List.of(clause1, clause2), null))
         ));
     }
 

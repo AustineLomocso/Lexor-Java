@@ -1076,5 +1076,329 @@ class InterpreterTest {
                 END SCRIPT
                 """).trim());
         }
+
+        // ── Unary operators ───────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("Unary plus +5 evaluates to 5 (spec: + is a unary operator)")
+        void unaryPlus() {
+            assertEquals("5", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT x
+                x=+5
+                PRINT: x
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("Unary minus -5 evaluates to -5")
+        void unaryMinus() {
+            assertEquals("-5", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT x
+                x=-5
+                PRINT: x
+                END SCRIPT
+                """).trim());
+        }
+
+        // ── FLOAT type end-to-end ─────────────────────────────────────────────
+
+        @Test
+        @DisplayName("FLOAT declaration with initializer prints correctly")
+        void floatDeclaration() {
+            String out = run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE FLOAT x=2.5
+                PRINT: x
+                END SCRIPT
+                """).trim();
+            assertTrue(out.contains("2.5"), "Expected output containing '2.5', got: " + out);
+        }
+
+        @Test
+        @DisplayName("FLOAT addition: 1.5 + 1.0 = 2.5")
+        void floatAddition() {
+            String out = run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE FLOAT x=1.5, y=1.0, r=0.0
+                r=x+y
+                PRINT: r
+                END SCRIPT
+                """).trim();
+            assertTrue(out.contains("2.5"), "Expected '2.5', got: " + out);
+        }
+
+        @Test
+        @DisplayName("FLOAT multiplication: 2.5 * 2.0 = 5.0")
+        void floatMultiplication() {
+            String out = run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE FLOAT x=2.5, y=2.0, r=0.0
+                r=x*y
+                PRINT: r
+                END SCRIPT
+                """).trim();
+            assertTrue(out.contains("5.0"), "Expected '5.0', got: " + out);
+        }
+
+        @Test
+        @DisplayName("FLOAT division: 5.0 / 2.0 = 2.5")
+        void floatDivision() {
+            String out = run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE FLOAT x=5.0, y=2.0, r=0.0
+                r=x/y
+                PRINT: r
+                END SCRIPT
+                """).trim();
+            assertTrue(out.contains("2.5"), "Expected '2.5', got: " + out);
+        }
+
+        @Test
+        @DisplayName("FLOAT relational: 3.5 > 2.0 = TRUE")
+        void floatRelational() {
+            assertEquals("TRUE", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE FLOAT a=3.5, b=2.0
+                DECLARE BOOL r="FALSE"
+                r=(a>b)
+                PRINT: r
+                END SCRIPT
+                """).trim());
+        }
+
+        // ── $ newline in PRINT ────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("$ in PRINT inserts a newline between surrounding segments")
+        void dollarProducesNewline() {
+            String out = run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT x=1, y=2
+                PRINT: x & $ & y
+                END SCRIPT
+                """);
+            String[] lines = out.split("\n", -1);
+            assertEquals("1", lines[0],
+                    "Segment before $ should be on the first line");
+            assertEquals("2", lines[1],
+                    "Segment after $ should be on the second line");
+        }
+
+        // ── Escape codes in PRINT ─────────────────────────────────────────────
+
+        @Test
+        @DisplayName("[[] escape prints literal '['")
+        void escapeOpenBracketOutput() {
+            assertEquals("[", run("""
+                SCRIPT AREA
+                START SCRIPT
+                PRINT: [[]
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("[]] escape prints literal ']'")
+        void escapeCloseBracketOutput() {
+            assertEquals("]", run("""
+                SCRIPT AREA
+                START SCRIPT
+                PRINT: []]
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("[#] escape prints literal '#'")
+        void escapeHashOutput() {
+            assertEquals("#", run("""
+                SCRIPT AREA
+                START SCRIPT
+                PRINT: [#]
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("Spec sample 2 escape brackets: [[] & xyz & []] prints '[-60]'")
+        void specSample2EscapeBrackets() {
+            assertEquals("[-60]", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT xyz, abc=100
+                xyz=((abc*5)/10+10)*-1
+                PRINT: [[] & xyz & []]
+                END SCRIPT
+                """).trim());
+        }
+
+        // ── PRINT with string literals ────────────────────────────────────────
+
+        @Test
+        @DisplayName("PRINT with string literal outputs the literal text")
+        void printStringLiteral() {
+            assertEquals("hello", run("""
+                SCRIPT AREA
+                START SCRIPT
+                PRINT: "hello"
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("PRINT concatenates INT & STRING & BOOL using &")
+        void printConcatenation() {
+            assertEquals("42worldTRUE", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT n=42
+                DECLARE BOOL b="TRUE"
+                PRINT: n & "world" & b
+                END SCRIPT
+                """).trim());
+        }
+
+        // ── Multiple ELSE IF ──────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("IF-ELSE IF-ELSE IF-ELSE: correct branch taken for each value")
+        void multipleElseIf() {
+            String program = """
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT x=%d
+                DECLARE BOOL c1="FALSE", c2="FALSE", c3="FALSE"
+                c1=(x==1)
+                c2=(x==2)
+                c3=(x==3)
+                IF (c1)
+                START IF
+                PRINT: "one"
+                END IF
+                ELSE IF (c2)
+                START IF
+                PRINT: "two"
+                END IF
+                ELSE IF (c3)
+                START IF
+                PRINT: "three"
+                END IF
+                ELSE
+                START IF
+                PRINT: "other"
+                END IF
+                END SCRIPT
+                """;
+            assertEquals("one",   run(String.format(program, 1)).trim());
+            assertEquals("two",   run(String.format(program, 2)).trim());
+            assertEquals("three", run(String.format(program, 3)).trim());
+            assertEquals("other", run(String.format(program, 9)).trim());
+        }
+
+        // ── FOR countdown ────────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("FOR countdown: sum 5+4+3+2+1 = 15 (decrement loop)")
+        void forCountdown() {
+            assertEquals("15", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT i=5, sum=0
+                FOR (i=5, i>=1, i=i-1)
+                START FOR
+                sum=sum+i
+                END FOR
+                PRINT: sum
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("FOR countdown: i ends at 0 when loop exits (i>=1 condition)")
+        void forCountdownFinalValue() {
+            assertEquals("0", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT i=5
+                FOR (i=5, i>=1, i=i-1)
+                START FOR
+                END FOR
+                PRINT: i
+                END SCRIPT
+                """).trim());
+        }
+
+        // ── REPEAT WHEN with NOT ──────────────────────────────────────────────
+
+        @Test
+        @DisplayName("REPEAT WHEN with NOT condition: loops until done becomes TRUE")
+        void repeatWhenNotCondition() {
+            assertEquals("3", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT count=0
+                DECLARE BOOL done="FALSE"
+                REPEAT WHEN (NOT done)
+                START REPEAT
+                count=count+1
+                done=(count==3)
+                END REPEAT
+                PRINT: count
+                END SCRIPT
+                """).trim());
+        }
+
+        // ── SCAN for all types ────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("SCAN reads single FLOAT value")
+        void scanFloat() {
+            String out = runWithInput("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE FLOAT x
+                SCAN: x
+                PRINT: x
+                END SCRIPT
+                """, "2.5\n").trim();
+            assertTrue(out.contains("2.5"), "Expected output containing '2.5', got: " + out);
+        }
+
+        @Test
+        @DisplayName("SCAN reads single CHAR value")
+        void scanChar() {
+            assertEquals("z", runWithInput("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE CHAR c
+                SCAN: c
+                PRINT: c
+                END SCRIPT
+                """, "z\n").trim());
+        }
+
+        @Test
+        @DisplayName("SCAN reads BOOL value")
+        void scanBool() {
+            assertEquals("TRUE", runWithInput("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE BOOL b
+                SCAN: b
+                PRINT: b
+                END SCRIPT
+                """, "TRUE\n").trim());
+        }
     }
 }

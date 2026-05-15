@@ -499,7 +499,7 @@ public class Parser {
             ASTNode initializer = null;
 
             if (match(TokenType.ASSIGN)) {
-                initializer = parsePrimary();
+                initializer = parseExpression();
             }
 
             decls.add(new DeclarationNode(line, typeName, name, initializer));

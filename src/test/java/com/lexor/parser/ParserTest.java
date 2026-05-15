@@ -387,6 +387,15 @@ class ParserTest {
         }
 
         @Test
+        @DisplayName("Unary plus: +1 → UnaryExprNode('+', LiteralNode(1))")
+        void unaryPlus() {
+            UnaryExprNode u = assertInstanceOf(UnaryExprNode.class, parseExpr("+1"));
+            assertEquals("+", u.getOperator());
+            LiteralNode operand = assertInstanceOf(LiteralNode.class, u.getOperand());
+            assertEquals(1, operand.getValue());
+        }
+
+        @Test
         @DisplayName("Spec sample: ((abc*5)/10+10)*-1 parses without exception")
         void complexArithmetic() {
             assertDoesNotThrow(() -> firstStmt(
@@ -721,6 +730,33 @@ class ParserTest {
         }
 
         @Test
+        @DisplayName("IF with two ELSE IF clauses collects both into getElseIfClauses()")
+        void twoElseIfClauses() {
+            IfNode n = parseIf("""
+                    DECLARE INT x
+                    IF (x == 1)
+                    START IF
+                    PRINT: "one"
+                    END IF
+                    ELSE IF (x == 2)
+                    START IF
+                    PRINT: "two"
+                    END IF
+                    ELSE IF (x == 3)
+                    START IF
+                    PRINT: "three"
+                    END IF
+                    ELSE
+                    START IF
+                    PRINT: "other"
+                    END IF
+                    """);
+            assertEquals(2, n.getElseIfClauses().size(),
+                    "Two ELSE IF clauses must both be captured");
+            assertTrue(n.hasElse());
+        }
+
+        @Test
         @DisplayName("Missing START IF throws ParseException")
         void missingStartIf() {
             assertThrows(ParseException.class, () -> parseProgram("""
@@ -800,6 +836,18 @@ class ParserTest {
         }
 
         @Test
+        @DisplayName("FOR with decrement update (i=i-1) parses without exception")
+        void forDecrement() {
+            assertDoesNotThrow(() -> parseProgram("""
+                    DECLARE INT i=5
+                    FOR (i=5, i>0, i=i-1)
+                    START FOR
+                    PRINT: i
+                    END FOR
+                    """));
+        }
+
+        @Test
         @DisplayName("Missing FOR header parentheses throws ParseException")
         void missingParens() {
             assertThrows(ParseException.class, () -> parseProgram("""
@@ -848,6 +896,18 @@ class ParserTest {
         @DisplayName("REPEAT body has one statement")
         void bodyCount() {
             assertEquals(1, parseRepeat().getBody().size());
+        }
+
+        @Test
+        @DisplayName("REPEAT WHEN condition with NOT operator parses without exception")
+        void repeatWhenNotCondition() {
+            assertDoesNotThrow(() -> parseProgram("""
+                    DECLARE BOOL done="FALSE"
+                    REPEAT WHEN (NOT done)
+                    START REPEAT
+                    done="TRUE"
+                    END REPEAT
+                    """));
         }
 
         @Test
