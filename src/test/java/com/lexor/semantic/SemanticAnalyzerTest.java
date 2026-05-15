@@ -1963,11 +1963,10 @@ class SemanticAnalyzerTest {
 
     @Test
     @Order(280)
-    @DisplayName("R28 PASS — INT + FLOAT result assigned to FLOAT variable passes")
+    @DisplayName("TC-A13 FAIL — INT + FLOAT is a type mismatch in strongly-typed mode")
     void r28_intPlusFloat_toFloat_passes() {
-        // DECLARE INT x / DECLARE FLOAT f / DECLARE FLOAT result
-        // result = x + f   — INT+FLOAT promotes to FLOAT
-        assertValid(program(
+        // TC-A13: strongly-typed language rejects mixing INT and FLOAT operands
+        assertInvalid(program(
                 List.of(decl("INT", "x"), decl("FLOAT", "f"), decl("FLOAT", "result")),
                 List.of(assign("result", binExpr(var("x"), "+", var("f"))))
         ));
@@ -1975,9 +1974,10 @@ class SemanticAnalyzerTest {
 
     @Test
     @Order(281)
-    @DisplayName("R28 PASS — FLOAT - INT result assigned to FLOAT variable passes")
+    @DisplayName("TC-A13 FAIL — FLOAT - INT is a type mismatch in strongly-typed mode")
     void r28_floatMinusInt_toFloat_passes() {
-        assertValid(program(
+        // TC-A13: strongly-typed language rejects mixing FLOAT and INT operands
+        assertInvalid(program(
                 List.of(decl("FLOAT", "f"), decl("INT", "x"), decl("FLOAT", "result")),
                 List.of(assign("result", binExpr(var("f"), "-", var("x"))))
         ));

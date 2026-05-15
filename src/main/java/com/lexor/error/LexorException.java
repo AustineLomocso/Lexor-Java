@@ -6,5 +6,6 @@ public class LexorException extends RuntimeException{
     }
 
     public LexorException(String message, int line, int column) {
+        super(line != 0 ? "[Line " + line + "] " + message : message);
     }
 }

@@ -241,6 +241,8 @@ public class LexorValue {
    public static LexorValue ofFloat(float v) { return new LexorValue("FLOAT", v); }
    public static LexorValue ofBool(boolean v){ return new LexorValue("BOOL",  v); }
    public static LexorValue ofChar(char v)   { return new LexorValue("CHAR",  v); }
+   public static LexorValue uninitializedOf(String type) { return new LexorValue(type, null); }
+   public boolean isUninitialized() { return value == null; }
 //
 //   Usage in Interpreter: return LexorValue.ofInt(left.asInt() + right.asInt());
 //   This is cleaner than: return new LexorValue("INT", left.asInt() + right.asInt());

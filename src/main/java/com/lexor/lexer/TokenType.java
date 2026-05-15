@@ -34,6 +34,8 @@ public enum TokenType {
     // Operators
     OP_PLUS,
     OP_MINUS,
+    OP_PLUS_PLUS,
+    OP_MINUS_MINUS,
     OP_MUL,
     OP_DIV,
     OP_MOD,

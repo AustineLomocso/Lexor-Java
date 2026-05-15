@@ -505,6 +505,21 @@ public class Parser {
             decls.add(new DeclarationNode(line, typeName, name, initializer));
 
         } while (match(TokenType.COMMA));
+
+        // Propagate the last initializer to any preceding variables with none.
+        // e.g. DECLARE INT x, y=5  →  both x and y get 5
+        ASTNode sharedInit = null;
+        for (DeclarationNode d : decls) {
+            if (d.getInitializer() != null) sharedInit = d.getInitializer();
+        }
+        if (sharedInit != null) {
+            for (int i = 0; i < decls.size(); i++) {
+                DeclarationNode d = decls.get(i);
+                if (d.getInitializer() == null) {
+                    decls.set(i, new DeclarationNode(d.getLine(), d.getTypeName(), d.getName(), sharedInit));
+                }
+            }
+        }
         if (!isAtEnd() && !check(TokenType.KEYWORD_END)) {
             consume(TokenType.NEWLINE, "newline after declaration");
         }
@@ -1220,6 +1235,11 @@ public class Parser {
     // TODO 28a: Implement parseUnaryArith().
     //
     private ASTNode parseUnaryArith(){
+        if(match(TokenType.OP_PLUS_PLUS, TokenType.OP_MINUS_MINUS)){
+            Token t = previous();
+            Token ident = consume(TokenType.IDENTIFIER, "variable name after '" + t.getLexeme() + "'");
+            return new IncrementNode(t.getLine(), ident.getLexeme(), t.getLexeme(), true);
+        }
         if(match(TokenType.OP_MINUS, TokenType.OP_PLUS)){
             String op = previous().getLexeme();
             ASTNode operand = parseUnaryArith();
@@ -1290,6 +1310,9 @@ public class Parser {
         if(match(TokenType.IDENTIFIER)){
             Token t = previous();
             String value = t.getLexeme();
+            if(match(TokenType.OP_PLUS_PLUS, TokenType.OP_MINUS_MINUS)){
+                return new IncrementNode(t.getLine(), value, previous().getLexeme(), false);
+            }
             return new VariableNode(t.getLine(), value);
         }
         if (match(TokenType.LPAREN)) {

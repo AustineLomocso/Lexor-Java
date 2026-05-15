@@ -129,6 +129,7 @@ public interface ASTVisitor<T> {
 //        execute the body and then the update assignment; repeat.
 //
     T visitRepeat(RepeatNode n);
+    T visitIncrement(IncrementNode n);
 //      - Called for REPEAT WHEN loops (do-while equivalent).
 //      - SemanticAnalyzer: verify the condition expression is BOOL,
 //        recursively validate the body.

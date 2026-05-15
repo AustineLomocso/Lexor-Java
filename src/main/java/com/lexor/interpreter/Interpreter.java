@@ -204,7 +204,7 @@ public class Interpreter implements ASTVisitor<LexorValue> {
         if(declarationNode.getInitializer() != null){
             initialValue = evaluate(declarationNode.getInitializer());
         }else{
-            initialValue = defaultValue(declarationNode.getTypeName());
+            initialValue = LexorValue.uninitializedOf(declarationNode.getTypeName());
         }
         environment.define(declarationNode.getName(), initialValue);
         log.debug("Declaration '" + declarationNode.getName() + "' initialized");
@@ -413,8 +413,22 @@ public class Interpreter implements ASTVisitor<LexorValue> {
 //     log.debug("Read variable {} = {}", n.getName(), val);
 //     return val;
     @Override
+    public LexorValue visitIncrement(com.lexor.parser.ast.IncrementNode n) {
+        LexorValue current = environment.get(n.getVarName());
+        if (current.isUninitialized()) throw new LexorRuntimeException(
+                "Variable '" + n.getVarName() + "' is used before initialization", n.getLine(), 0);
+        boolean isFloat = current.getType().equals("FLOAT");
+        LexorValue updated = isFloat
+                ? LexorValue.ofFloat(current.asFloat() + ("++".equals(n.getOp()) ? 1.0f : -1.0f))
+                : LexorValue.ofInt(current.asInt()   + ("++".equals(n.getOp()) ? 1    : -1));
+        environment.assign(n.getVarName(), updated);
+        return n.isPrefix() ? updated : current;
+    }
+
     public LexorValue visitVariable(VariableNode n){
         LexorValue val = environment.get(n.getName());
+        if (val.isUninitialized()) throw new LexorRuntimeException(
+                "Variable '" + n.getName() + "' is used before initialization", n.getLine(), 0);
         log.debug("Read variable {} = {}",  n.getName(), val);
         return val;
     }
@@ -453,6 +467,7 @@ public class Interpreter implements ASTVisitor<LexorValue> {
     public LexorValue visitUnaryExpr(UnaryExprNode n) {
         LexorValue operand = evaluate(n.getOperand());
         return switch (n.getOperator()) {
+            case "+" -> operand;
             case "-" -> operand.getType().equals("FLOAT")
                     ? LexorValue.ofFloat(-operand.asFloat())
                     : LexorValue.ofInt(-operand.asInt());
@@ -593,14 +608,23 @@ private LexorValue evaluate(ASTNode node) {
 
         switch (op) {
             case "+":
-                return isFloat ? LexorValue.ofFloat(left.asFloat() + right.asFloat())
-                        : LexorValue.ofInt(left.asInt() + right.asInt());
+                if (!isFloat) {
+                    try { return LexorValue.ofInt(Math.addExact(left.asInt(), right.asInt())); }
+                    catch (ArithmeticException e) { throw new LexorRuntimeException("Integer overflow", line, 0); }
+                }
+                return LexorValue.ofFloat(left.asFloat() + right.asFloat());
             case "-":
-                return isFloat ? LexorValue.ofFloat(left.asFloat() - right.asFloat())
-                        : LexorValue.ofInt(left.asInt() - right.asInt());
+                if (!isFloat) {
+                    try { return LexorValue.ofInt(Math.subtractExact(left.asInt(), right.asInt())); }
+                    catch (ArithmeticException e) { throw new LexorRuntimeException("Integer overflow", line, 0); }
+                }
+                return LexorValue.ofFloat(left.asFloat() - right.asFloat());
             case "*":
-                return isFloat ? LexorValue.ofFloat(left.asFloat() * right.asFloat())
-                        : LexorValue.ofInt(left.asInt() * right.asInt());
+                if (!isFloat) {
+                    try { return LexorValue.ofInt(Math.multiplyExact(left.asInt(), right.asInt())); }
+                    catch (ArithmeticException e) { throw new LexorRuntimeException("Integer overflow", line, 0); }
+                }
+                return LexorValue.ofFloat(left.asFloat() * right.asFloat());
             case "/":
                 if (right.asFloat() == 0.0f) throw new LexorRuntimeException("Division by zero", line, 0);
                 return isFloat ? LexorValue.ofFloat(left.asFloat() / right.asFloat())

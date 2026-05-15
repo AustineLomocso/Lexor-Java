@@ -191,7 +191,6 @@ public class Lexer {
         }
 
         addToken(TokenType.EOF, "");
-        System.out.println("Total token count: " + tokens.size());
         logger.debug("Tokenization complete. {} tokens produced.", tokens.size());
         return tokens;
     }
@@ -300,12 +299,18 @@ public class Lexer {
                 break;
             case ',': addToken(TokenType.COMMA, ","); break;
             case ':': addToken(TokenType.COLON, ":"); break;
-            case '+': addToken(TokenType.OP_PLUS, "+"); break;
+            case '+':
+                if (!isAtEnd() && peek() == '+') { advance(); addToken(TokenType.OP_PLUS_PLUS, "++"); }
+                else addToken(TokenType.OP_PLUS, "+");
+                break;
             case '*': addToken(TokenType.OP_MUL, "*"); break;
             case '/': addToken(TokenType.OP_DIV, "/"); break;
             case '&': addToken(TokenType.AMPERSAND, "&"); break;
             case '$': addToken(TokenType.DOLLAR, "$"); break;
-            case '-': addToken(TokenType.OP_MINUS, "-"); break;
+            case '-':
+                if (!isAtEnd() && peek() == '-') { advance(); addToken(TokenType.OP_MINUS_MINUS, "--"); }
+                else addToken(TokenType.OP_MINUS, "-");
+                break;
             case '.': break;
 
 

@@ -232,7 +232,10 @@ public class SemanticAnalyzer implements ASTVisitor<String> {
                 if(!isNumeric(left) || !isNumeric(right)){
                     throw new SemanticException("Arithmetic operator "+binaryExpr.getOperator()+" requires numeric operands at line "+binaryExpr.getLine());
                 }
-                return (left.equals("INT") && right.equals("INT")) ? "INT" : "FLOAT";
+                if(!left.equals(right)){
+                    throw new SemanticException("Type mismatch: Cannot mix "+left+" and "+right+" with '"+binaryExpr.getOperator()+"' at line "+binaryExpr.getLine());
+                }
+                return left;
             }
             case "<", ">", "<=", ">=":{
                 if(!isNumeric(left) || !isNumeric(right)){
@@ -255,6 +258,16 @@ public class SemanticAnalyzer implements ASTVisitor<String> {
             default:
                 throw new SemanticException("Type mismatch at line "+binaryExpr.getLine());
         }
+    }
+
+    @Override
+    public String visitIncrement(com.lexor.parser.ast.IncrementNode n) {
+        String type = symbolTable.lookup(n.getVarName()).getType();
+        if (!isNumeric(type)) {
+            throw new SemanticException(
+                "Operator '" + n.getOp() + "' requires INT or FLOAT variable at line " + n.getLine());
+        }
+        return type;
     }
 
     private boolean isNumeric(String type){

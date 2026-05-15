@@ -598,39 +598,39 @@ class InterpreterTest {
         // ── Default values — BUG-4 ───────────────────────────────────────────
 
         @Test
-        @DisplayName("[BUG-4] Uninitialised INT defaults to 0")
+        @DisplayName("[TC-A16] Uninitialised INT used before assignment throws")
         void defaultInt() {
-            assertEquals("0", run("""
+            assertThrows(LexorRuntimeException.class, () -> run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT x
                 PRINT: x
                 END SCRIPT
-                """).trim(), "BUG-4: defaultFor() missing → NullPointerException");
+                """), "TC-A16: using uninitialised variable should throw LexorRuntimeException");
         }
 
         @Test
-        @DisplayName("[BUG-4] Uninitialised BOOL defaults to FALSE (also tests BUG-1)")
+        @DisplayName("[TC-A16] Uninitialised BOOL used before assignment throws")
         void defaultBool() {
-            assertEquals("FALSE", run("""
+            assertThrows(LexorRuntimeException.class, () -> run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE BOOL b
                 PRINT: b
                 END SCRIPT
-                """).trim(), "BUG-4: defaultFor() missing  OR  BUG-1: prints 'false'");
+                """), "TC-A16: using uninitialised variable should throw LexorRuntimeException");
         }
 
         @Test
-        @DisplayName("[BUG-4] Three uninitialised INTs all default to 0")
+        @DisplayName("[TC-A16] Three uninitialised INTs used before assignment throw")
         void defaultMultipleInts() {
-            assertEquals("000", run("""
+            assertThrows(LexorRuntimeException.class, () -> run("""
                 SCRIPT AREA
                 START SCRIPT
                 DECLARE INT a, b, c
                 PRINT: a & b & c
                 END SCRIPT
-                """).trim());
+                """), "TC-A16: using uninitialised variable should throw LexorRuntimeException");
         }
 
         // ── BOOL printing — BUG-1 ────────────────────────────────────────────
