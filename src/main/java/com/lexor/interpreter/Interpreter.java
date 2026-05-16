@@ -290,8 +290,8 @@ public class Interpreter implements ASTVisitor<LexorValue> {
     public LexorValue visitScan(ScanNode n) {
         String line = input.nextLine();
         String[] parts = line.split(",", -1);
-        for(String part: parts){
-            part.trim();
+        for (int i = 0; i < parts.length; i++) {
+            parts[i] = parts[i].trim();
         }
         List<String> variables = n.getVariables();
         if(parts.length != n.getVariables().size()){
