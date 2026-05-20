@@ -1,3 +1,136 @@
 SCRIPT AREA
-  START SCRIPT
-  END SCRIPT
+START SCRIPT
+
+%% All declarations must appear before any statements
+DECLARE INT a = 10
+DECLARE INT b = 20
+DECLARE BOOL flag = "TRUE"
+DECLARE INT grade = 75
+DECLARE INT i = 0
+DECLARE INT sum = 0
+DECLARE INT n = 3
+DECLARE INT acc = 1
+DECLARE INT x = 5
+
+%% -------------------------------------------------------
+%% CONDITIONALS
+%% -------------------------------------------------------
+
+%% Basic IF — true branch
+IF (a < b)
+START IF
+    PRINT: "a is less than b" & $
+END IF
+
+%% IF/ELSE — else branch fires
+IF (a > b)
+START IF
+    PRINT: "WRONG" & $
+END IF
+ELSE
+START IF
+    PRINT: "a is not greater than b" & $
+END IF
+
+%% ELSE IF chain — grade 75 lands on C
+IF (grade >= 90)
+START IF
+    PRINT: "A" & $
+END IF
+ELSE IF (grade >= 80)
+START IF
+    PRINT: "B" & $
+END IF
+ELSE IF (grade >= 70)
+START IF
+    PRINT: "C" & $
+END IF
+ELSE
+START IF
+    PRINT: "F" & $
+END IF
+
+%% Nested IF
+IF (a < b)
+START IF
+    IF (flag == "TRUE")
+    START IF
+        PRINT: "nested: a<b AND flag is TRUE" & $
+    END IF
+END IF
+
+%% AND / OR compound conditions
+IF (a < b AND flag == "TRUE")
+START IF
+    PRINT: "AND condition passed" & $
+END IF
+
+IF (a > b OR flag == "TRUE")
+START IF
+    PRINT: "OR condition passed" & $
+END IF
+
+%% -------------------------------------------------------
+%% FOR LOOPS
+%% -------------------------------------------------------
+
+%% Count up 1 to 5
+FOR (i=1, i<=5, i=i+1)
+START FOR
+    PRINT: i & " "
+END FOR
+PRINT: $
+
+%% Count down 5 to 1
+FOR (i=5, i>=1, i=i-1)
+START FOR
+    PRINT: i & " "
+END FOR
+PRINT: $
+
+%% Sum 1 to 10
+FOR (i=1, i<=10, i=i+1)
+START FOR
+    sum = sum + i
+END FOR
+PRINT: "sum 1-10 = " & sum & $
+
+%% Multiplication table row for 3
+FOR (i=1, i<=5, i=i+1)
+START FOR
+    PRINT: "3 x " & i & " = " & 3*i & $
+END FOR
+
+%% -------------------------------------------------------
+%% REPEAT WHEN LOOPS
+%% -------------------------------------------------------
+
+%% Countdown from 3
+REPEAT WHEN (n > 0)
+START REPEAT
+    PRINT: "n = " & n & $
+    n = n - 1
+END REPEAT
+
+%% Double until >= 100
+REPEAT WHEN (acc < 100)
+START REPEAT
+    acc = acc * 2
+END REPEAT
+PRINT: "acc after doubling = " & acc & $
+
+%% -------------------------------------------------------
+%% INCREMENT / DECREMENT (expression context)
+%% -------------------------------------------------------
+
+PRINT: "x = " & x & $
+PRINT: "x++ = " & x++ & $
+PRINT: "x = " & x & $
+PRINT: "++x = " & ++x & $
+PRINT: "x = " & x & $
+PRINT: "x-- = " & x-- & $
+PRINT: "x = " & x & $
+PRINT: "--x = " & --x & $
+PRINT: "x = " & x & $
+
+END SCRIPT

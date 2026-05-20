@@ -284,7 +284,7 @@ public class Parser {
     //
     private Token consume(TokenType type, String message){
        if (check(type)) return advance();
-       throw this.error("Expected " + message + " but found '" + peek().getLexeme() + "' at line " + peek().getLine());
+       throw this.error("Expected " + message + " but found '" + peek().getLexeme() + "'");
     }
     // -------------------------------------------------------------------------
     // TODO STEP 10 — skipNewlines()
