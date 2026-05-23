@@ -11,6 +11,10 @@ DECLARE INT sum = 0
 DECLARE INT n = 3
 DECLARE INT acc = 1
 DECLARE INT x = 5
+DECLARE INT j = 0
+DECLARE INT p = 1
+DECLARE INT q = 1
+DECLARE INT r = 0
 
 %% -------------------------------------------------------
 %% CONDITIONALS
@@ -132,5 +136,110 @@ PRINT: "x-- = " & x-- & $
 PRINT: "x = " & x & $
 PRINT: "--x = " & --x & $
 PRINT: "x = " & x & $
+
+%% -------------------------------------------------------
+%% ADDITIONAL CONDITIONAL TESTS
+%% -------------------------------------------------------
+
+%% NOT operator — flag is "TRUE", so NOT flag is FALSE → ELSE branch fires
+IF (NOT flag)
+START IF
+    PRINT: "WRONG: NOT TRUE should be FALSE" & $
+END IF
+ELSE
+START IF
+    PRINT: "NOT: NOT TRUE = FALSE (else branch correct)" & $
+END IF
+
+%% <> (not equal) — 10 <> 20 is TRUE
+IF (a <> b)
+START IF
+    PRINT: "NEQ: a and b are not equal" & $
+END IF
+
+%% NOT applied to a parenthesized comparison — NOT (10 == 20) = TRUE
+IF (NOT (a == b))
+START IF
+    PRINT: "NOT-EXPR: NOT (a == b) is TRUE" & $
+END IF
+
+%% AND combined with NOT — (10<20) AND NOT (10==20) = TRUE AND TRUE
+IF (a < b AND NOT (a == b))
+START IF
+    PRINT: "AND-NOT: a<b AND a!=b" & $
+END IF
+
+%% -------------------------------------------------------
+%% ADDITIONAL FOR LOOP TESTS
+%% -------------------------------------------------------
+
+%% FOR that never executes — init sets i=10, condition 10<5 is FALSE from start
+FOR (i=10, i<5, i=i+1)
+START FOR
+    PRINT: "WRONG: body should not run" & $
+END FOR
+PRINT: "FOR-NEVER: done, i = " & i & $
+
+%% FOR counting by 2 — even numbers 0 to 10
+FOR (i=0, i<=10, i=i+2)
+START FOR
+    PRINT: i & " "
+END FOR
+PRINT: $
+
+%% Nested FOR loops — 2x3 multiplication grid
+FOR (i=1, i<=2, i=i+1)
+START FOR
+    FOR (j=1, j<=3, j=j+1)
+    START FOR
+        PRINT: i & "x" & j & "=" & i*j & " "
+    END FOR
+    PRINT: $
+END FOR
+
+%% FOR with inner IF — print only odd numbers from 1 to 6
+FOR (i=1, i<=6, i=i+1)
+START FOR
+    IF (i == 1 OR i == 3 OR i == 5)
+    START IF
+        PRINT: i & " "
+    END IF
+END FOR
+PRINT: $
+
+%% -------------------------------------------------------
+%% ADDITIONAL REPEAT WHEN TESTS
+%% -------------------------------------------------------
+
+%% REPEAT WHEN that never runs — n=0 after earlier countdown, 0>100 is FALSE
+REPEAT WHEN (n > 100)
+START REPEAT
+    PRINT: "WRONG: should not execute" & $
+END REPEAT
+PRINT: "REPEAT-NEVER: done (n=" & n & ")" & $
+
+%% REPEAT WHEN counting up — p starts at 1, prints each value up to 5
+REPEAT WHEN (p <= 5)
+START REPEAT
+    PRINT: "p = " & p & $
+    p = p + 1
+END REPEAT
+
+%% REPEAT WHEN with AND condition — q: 1 -> 4 -> 7 -> 10, exits when q >= 10
+REPEAT WHEN (q > 0 AND q < 10)
+START REPEAT
+    q = q + 3
+END REPEAT
+PRINT: "REPEAT-AND: q = " & q & $
+
+%% Nested FOR inside REPEAT WHEN — 2x2 grid of r and i values
+REPEAT WHEN (r < 2)
+START REPEAT
+    FOR (i=1, i<=2, i=i+1)
+    START FOR
+        PRINT: "r=" & r & " i=" & i & $
+    END FOR
+    r = r + 1
+END REPEAT
 
 END SCRIPT

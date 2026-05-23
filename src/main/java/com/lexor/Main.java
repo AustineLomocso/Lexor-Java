@@ -18,6 +18,11 @@ import com.lexor.parser.ast.ProgramNode;
 import com.lexor.semantic.SemanticAnalyzer;
 import com.lexor.interpreter.Interpreter;
 import com.lexor.repl.ReplRunner;
+import com.lexor.web.LexorServer;
+import com.lexor.error.LexorException;
+import com.lexor.error.LexorRuntimeException;
+import com.lexor.error.ParseException;
+import com.lexor.error.SemanticException;
 
 @Command(name = "lexor", mixinStandardHelpOptions = true, version = "1.0",
         description = "Runs a LEXOR source file or starts an interactive REPL.")
@@ -29,8 +34,16 @@ public class Main implements Callable<Integer> {
     @Option(names = {"--repl", "-r"}, description = "Start interactive REPL mode")
     private boolean replMode;
 
+    @Option(names = {"--serve", "-s"}, description = "Start HTTP server on given port", defaultValue = "-1")
+    private int servePort;
+
     @Override
     public Integer call() throws Exception {
+
+        if (servePort > 0) {
+            LexorServer.start(servePort);
+            return 0;
+        }
 
         // 1. Initialize the environment/memory
         // We do this here so both the REPL and the File runner can use them!
@@ -75,9 +88,31 @@ public class Main implements Callable<Integer> {
             // STEP 4: Interpreter (Execute the code to the terminal)
             interpreter.interpret(ast);
 
+        } catch (ParseException e) {
+            String pos = e.getLine() > 0
+                ? " — line " + e.getLine() + (e.getColumn() > 0 ? ", col " + e.getColumn() : "")
+                : "";
+            System.err.println("[Parse Error] " + file.getName() + pos);
+            System.err.println("  " + e.getMessage());
+        } catch (SemanticException e) {
+            String pos = e.getLine() > 0
+                ? " — line " + e.getLine() + (e.getCol() > 0 ? ", col " + e.getCol() : "")
+                : "";
+            System.err.println("[Semantic Error] " + file.getName() + pos);
+            System.err.println("  " + e.getMessage());
+        } catch (LexorRuntimeException e) {
+            String pos = e.getLine() > 0 ? " — line " + e.getLine() : "";
+            System.err.println("[Runtime Error] " + file.getName() + pos);
+            System.err.println("  " + e.getMessage());
+        } catch (LexorException e) {
+            String pos = e.getLine() > 0
+                ? " — line " + e.getLine() + (e.getColumn() > 0 ? ", col " + e.getColumn() : "")
+                : "";
+            System.err.println("[Lex Error] " + file.getName() + pos);
+            System.err.println("  " + e.getMessage());
         } catch (Exception e) {
-            // If the user's LEXOR code has a syntax error, or the file doesn't exist, it prints here
-            System.err.println("[Error] Could not execute " + file.getName() + ":\n" + e.getMessage());
+            System.err.println("[Internal Error] " + file.getName());
+            System.err.println("  " + e.getMessage());
         }
     }
 

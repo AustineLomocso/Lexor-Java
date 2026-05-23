@@ -148,7 +148,10 @@ public class Lexer {
 
         Map.entry("AND", TokenType.OP_AND),
         Map.entry("OR", TokenType.OP_OR),
-        Map.entry("NOT", TokenType.OP_NOT)
+        Map.entry("NOT", TokenType.OP_NOT),
+
+        Map.entry("TRUE",  TokenType.BOOL_LITERAL),
+        Map.entry("FALSE", TokenType.BOOL_LITERAL)
     );
 
     // =========================================================================

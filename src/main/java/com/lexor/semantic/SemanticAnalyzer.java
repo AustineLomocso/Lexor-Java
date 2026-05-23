@@ -315,8 +315,12 @@ public class SemanticAnalyzer implements ASTVisitor<String> {
 //     return info.getType();
     @Override
     public String visitVariable(VariableNode variable) {
-        SymbolTable.TypeInfo info = symbolTable.lookup(variable.getName());
-        return info.getType();
+        try {
+            SymbolTable.TypeInfo info = symbolTable.lookup(variable.getName());
+            return info.getType();
+        } catch (SemanticException e) {
+            throw new SemanticException(e.getMessage(), variable.getLine(), 0);
+        }
     }
 // TODO: @Override public String visitIf(IfNode n)
 //
@@ -411,6 +415,7 @@ public class SemanticAnalyzer implements ASTVisitor<String> {
     private void checkTypeCompatibility(String typeName, String initType, int line) {
         if(typeName.equals(initType)){ return; }
         if("FLOAT".equals(typeName) && "INT".equals(initType)){return;}
-        throw new SemanticException("Incompatible types at line "+line);
+        throw new SemanticException(
+            "Incompatible types: expected " + typeName + " but got " + initType, line, 0);
     }
 }
