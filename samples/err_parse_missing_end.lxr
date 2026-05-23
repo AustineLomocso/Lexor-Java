@@ -1,0 +1,10 @@
+SCRIPT AREA
+START SCRIPT
+
+DECLARE INT a = 10
+
+IF (a > 5)
+START IF
+    PRINT: "a > 5" & $
+
+END SCRIPT

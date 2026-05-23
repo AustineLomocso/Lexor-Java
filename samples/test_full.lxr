@@ -1,0 +1,514 @@
+SCRIPT AREA
+START SCRIPT
+
+%% -------------------------------------------------------
+%% ALL DECLARATIONS (must precede all executable statements)
+%% -------------------------------------------------------
+DECLARE INT a = 10
+DECLARE INT b = 3
+DECLARE INT c = 0
+DECLARE INT i = 0
+DECLARE INT j = 0
+DECLARE INT sum = 0
+DECLARE INT prod = 1
+DECLARE INT count = 0
+DECLARE INT x = 5
+DECLARE INT y = 0
+DECLARE INT z = 0
+DECLARE INT n1, n2, n3 = 7
+DECLARE FLOAT f1 = 3.5
+DECLARE FLOAT f2 = 2.0
+DECLARE FLOAT f3 = 0.0
+DECLARE CHAR ch1 = 'A'
+DECLARE CHAR ch2 = 'z'
+DECLARE BOOL flag = "TRUE"
+DECLARE BOOL flag2 = "FALSE"
+
+%% -------------------------------------------------------
+%% SECTION 1: DATA TYPE DISPLAY
+%% -------------------------------------------------------
+PRINT: "=== Section 1: Data Types ===" & $
+PRINT: "INT a=10: " & a & $
+PRINT: "FLOAT f1=3.5: " & f1 & $
+PRINT: "CHAR ch1=A: " & ch1 & $
+PRINT: "BOOL flag=TRUE: " & flag & $
+PRINT: "BOOL flag2=FALSE: " & flag2 & $
+
+%% -------------------------------------------------------
+%% SECTION 2: INT ARITHMETIC
+%% -------------------------------------------------------
+PRINT: "=== Section 2: INT Arithmetic ===" & $
+PRINT: "10+3=" & a+b & $
+PRINT: "10-3=" & a-b & $
+PRINT: "10*3=" & a*b & $
+PRINT: "10/3=" & a/b & $
+PRINT: "10%3=" & a%b & $
+PRINT: "-a=" & -a & $
+PRINT: "+a=" & +a & $
+
+%% -------------------------------------------------------
+%% SECTION 3: OPERATOR PRECEDENCE
+%% -------------------------------------------------------
+PRINT: "=== Section 3: Operator Precedence ===" & $
+PRINT: "2+3*4=" & 2+3*4 & $
+PRINT: "(2+3)*4=" & (2+3)*4 & $
+PRINT: "10-4/2=" & 10-4/2 & $
+PRINT: "10%3+1=" & 10%3+1 & $
+PRINT: "2*3+4*5=" & 2*3+4*5 & $
+
+%% -------------------------------------------------------
+%% SECTION 4: FLOAT ARITHMETIC
+%% -------------------------------------------------------
+PRINT: "=== Section 4: FLOAT Arithmetic ===" & $
+PRINT: "3.5+2.0=" & f1+f2 & $
+PRINT: "3.5-2.0=" & f1-f2 & $
+PRINT: "3.5*2.0=" & f1*f2 & $
+PRINT: "3.5/2.0=" & f1/f2 & $
+
+%% -------------------------------------------------------
+%% SECTION 5: RELATIONAL OPERATORS (all 6)
+%% -------------------------------------------------------
+PRINT: "=== Section 5: Relational Operators ===" & $
+IF (a > b)
+START IF
+    PRINT: "10>3: TRUE" & $
+END IF
+IF (b < a)
+START IF
+    PRINT: "3<10: TRUE" & $
+END IF
+IF (a >= 10)
+START IF
+    PRINT: "10>=10: TRUE" & $
+END IF
+IF (b <= 3)
+START IF
+    PRINT: "3<=3: TRUE" & $
+END IF
+IF (a == 10)
+START IF
+    PRINT: "10==10: TRUE" & $
+END IF
+IF (a <> b)
+START IF
+    PRINT: "10<>3: TRUE" & $
+END IF
+IF (a < b)
+START IF
+    PRINT: "WRONG: 10<3 is FALSE" & $
+END IF
+ELSE
+START IF
+    PRINT: "10<3: FALSE (correct)" & $
+END IF
+
+%% -------------------------------------------------------
+%% SECTION 6: LOGICAL TRUTH TABLES
+%% -------------------------------------------------------
+PRINT: "=== Section 6: Logical Truth Tables ===" & $
+IF (flag AND flag)
+START IF
+    PRINT: "TRUE AND TRUE = TRUE" & $
+END IF
+IF (flag AND flag2)
+START IF
+    PRINT: "WRONG: TRUE AND FALSE" & $
+END IF
+ELSE
+START IF
+    PRINT: "TRUE AND FALSE = FALSE" & $
+END IF
+IF (flag2 AND flag2)
+START IF
+    PRINT: "WRONG: FALSE AND FALSE" & $
+END IF
+ELSE
+START IF
+    PRINT: "FALSE AND FALSE = FALSE" & $
+END IF
+IF (flag OR flag2)
+START IF
+    PRINT: "TRUE OR FALSE = TRUE" & $
+END IF
+IF (flag2 OR flag)
+START IF
+    PRINT: "FALSE OR TRUE = TRUE" & $
+END IF
+IF (flag2 OR flag2)
+START IF
+    PRINT: "WRONG: FALSE OR FALSE" & $
+END IF
+ELSE
+START IF
+    PRINT: "FALSE OR FALSE = FALSE" & $
+END IF
+IF (NOT flag)
+START IF
+    PRINT: "WRONG: NOT TRUE" & $
+END IF
+ELSE
+START IF
+    PRINT: "NOT TRUE = FALSE" & $
+END IF
+IF (NOT flag2)
+START IF
+    PRINT: "NOT FALSE = TRUE" & $
+END IF
+
+%% -------------------------------------------------------
+%% SECTION 7: COMPOUND CONDITIONS
+%% -------------------------------------------------------
+PRINT: "=== Section 7: Compound Conditions ===" & $
+IF (a > b AND flag)
+START IF
+    PRINT: "a>b AND flag: TRUE" & $
+END IF
+IF (a < b OR flag)
+START IF
+    PRINT: "a<b OR flag: TRUE (via OR)" & $
+END IF
+IF (NOT flag2 AND a > b)
+START IF
+    PRINT: "NOT FALSE AND a>b: TRUE" & $
+END IF
+IF (flag AND NOT flag2)
+START IF
+    PRINT: "TRUE AND NOT FALSE: TRUE" & $
+END IF
+
+%% -------------------------------------------------------
+%% SECTION 8: IF / ELSE IF / ELSE
+%% -------------------------------------------------------
+PRINT: "=== Section 8: IF/ELSE IF/ELSE ===" & $
+
+%% Simple IF - true
+IF (a == 10)
+START IF
+    PRINT: "IF true: a==10" & $
+END IF
+
+%% Simple IF - false (no output expected)
+IF (a == 99)
+START IF
+    PRINT: "WRONG: a!=99" & $
+END IF
+
+%% IF/ELSE - else branch
+IF (a == 99)
+START IF
+    PRINT: "WRONG" & $
+END IF
+ELSE
+START IF
+    PRINT: "ELSE taken: a!=99" & $
+END IF
+
+%% ELSE IF chain - first branch taken
+IF (a >= 10)
+START IF
+    PRINT: "ELSE IF chain: first (>=10)" & $
+END IF
+ELSE IF (a >= 5)
+START IF
+    PRINT: "WRONG: second branch" & $
+END IF
+ELSE
+START IF
+    PRINT: "WRONG: else branch" & $
+END IF
+
+%% ELSE IF chain - middle branch taken (a=10: a<0 false, a<15 true)
+IF (a < 0)
+START IF
+    PRINT: "WRONG: negative" & $
+END IF
+ELSE IF (a < 15)
+START IF
+    PRINT: "ELSE IF chain: middle (a<15)" & $
+END IF
+ELSE
+START IF
+    PRINT: "WRONG: else" & $
+END IF
+
+%% ELSE IF chain - else branch (all conditions false)
+IF (a < 0)
+START IF
+    PRINT: "WRONG" & $
+END IF
+ELSE IF (a < 5)
+START IF
+    PRINT: "WRONG" & $
+END IF
+ELSE IF (a < 8)
+START IF
+    PRINT: "WRONG" & $
+END IF
+ELSE
+START IF
+    PRINT: "ELSE: all conditions false" & $
+END IF
+
+%% Nested triple IF
+IF (a > 0)
+START IF
+    IF (a < 20)
+    START IF
+        IF (a == 10)
+        START IF
+            PRINT: "Nested IF: a>0 AND a<20 AND a==10" & $
+        END IF
+    END IF
+END IF
+
+%% -------------------------------------------------------
+%% SECTION 9: FOR LOOPS
+%% -------------------------------------------------------
+PRINT: "=== Section 9: FOR Loops ===" & $
+
+%% Count up 1 to 5
+FOR (i=1, i<=5, i=i+1)
+START FOR
+    PRINT: i & " "
+END FOR
+PRINT: $
+
+%% Count down 5 to 1
+FOR (i=5, i>=1, i=i-1)
+START FOR
+    PRINT: i & " "
+END FOR
+PRINT: $
+
+%% Step by 3: 0, 3, 6, 9
+FOR (i=0, i<=9, i=i+3)
+START FOR
+    PRINT: i & " "
+END FOR
+PRINT: $
+
+%% Zero-trip FOR (condition false from start: 10 < 5 is FALSE)
+FOR (i=10, i<5, i=i+1)
+START FOR
+    PRINT: "WRONG: body should not run" & $
+END FOR
+PRINT: "FOR skip: i=" & i & $
+
+%% Sum 1 to 10 = 55
+sum = 0
+FOR (i=1, i<=10, i=i+1)
+START FOR
+    sum = sum + i
+END FOR
+PRINT: "sum 1..10=" & sum & $
+
+%% Product 1*2*3*4*5 = 120
+prod = 1
+FOR (i=1, i<=5, i=i+1)
+START FOR
+    prod = prod * i
+END FOR
+PRINT: "prod 1..5=" & prod & $
+
+%% Nested FOR 3x3 multiplication table
+FOR (i=1, i<=3, i=i+1)
+START FOR
+    FOR (j=1, j<=3, j=j+1)
+    START FOR
+        PRINT: i & "*" & j & "=" & i*j & " "
+    END FOR
+    PRINT: $
+END FOR
+
+%% FOR with inner IF: print multiples of 3 from 1 to 15
+FOR (i=1, i<=15, i=i+1)
+START FOR
+    IF (i%3 == 0)
+    START IF
+        PRINT: i & " "
+    END IF
+END FOR
+PRINT: $
+
+%% -------------------------------------------------------
+%% SECTION 10: REPEAT WHEN LOOPS
+%% -------------------------------------------------------
+PRINT: "=== Section 10: REPEAT WHEN ===" & $
+
+%% Zero-trip: condition false from start (count=0, 0>10 is FALSE)
+count = 0
+REPEAT WHEN (count > 10)
+START REPEAT
+    PRINT: "WRONG: should not execute" & $
+END REPEAT
+PRINT: "REPEAT skip (0>10=FALSE)" & $
+
+%% Count up 1 to 4
+count = 1
+REPEAT WHEN (count <= 4)
+START REPEAT
+    PRINT: count & " "
+    count = count + 1
+END REPEAT
+PRINT: $
+
+%% Countdown 3 to 1
+count = 3
+REPEAT WHEN (count > 0)
+START REPEAT
+    PRINT: count & " "
+    count = count - 1
+END REPEAT
+PRINT: $
+
+%% Power of 2 until >= 64
+count = 1
+REPEAT WHEN (count < 64)
+START REPEAT
+    count = count * 2
+END REPEAT
+PRINT: "pow2>=64: " & count & $
+
+%% AND condition: 1->4->7->10, exits when count>=10
+count = 1
+REPEAT WHEN (count > 0 AND count < 10)
+START REPEAT
+    count = count + 3
+END REPEAT
+PRINT: "AND exit at: " & count & $
+
+%% Nested FOR inside REPEAT WHEN (2x2 grid)
+count = 0
+REPEAT WHEN (count < 2)
+START REPEAT
+    FOR (i=1, i<=2, i=i+1)
+    START FOR
+        PRINT: "r=" & count & " i=" & i & $
+    END FOR
+    count = count + 1
+END REPEAT
+
+%% -------------------------------------------------------
+%% SECTION 11: INCREMENT / DECREMENT
+%% -------------------------------------------------------
+PRINT: "=== Section 11: Increment/Decrement ===" & $
+x = 5
+PRINT: "x=" & x & $
+PRINT: "x++=" & x++ & $
+PRINT: "x=" & x & $
+PRINT: "++x=" & ++x & $
+PRINT: "x=" & x & $
+PRINT: "x--=" & x-- & $
+PRINT: "x=" & x & $
+PRINT: "--x=" & --x & $
+PRINT: "x=" & x & $
+
+%% -------------------------------------------------------
+%% SECTION 12: PRINT ESCAPE CODES
+%% -------------------------------------------------------
+PRINT: "=== Section 12: Escape Codes ===" & $
+PRINT: "Hash: " & [#] & $
+PRINT: "Left-bracket: " & [[] & $
+PRINT: "Right-bracket: " & []] & $
+PRINT: "Ampersand: " & [&] & $
+PRINT: "Dollar: " & [$] & $
+
+%% -------------------------------------------------------
+%% SECTION 13: CHAR TYPE
+%% -------------------------------------------------------
+PRINT: "=== Section 13: CHAR Type ===" & $
+PRINT: "ch1=" & ch1 & $
+PRINT: "ch2=" & ch2 & $
+ch1 = 'B'
+PRINT: "ch1 after B: " & ch1 & $
+IF (ch2 == 'z')
+START IF
+    PRINT: "ch2=='z': TRUE" & $
+END IF
+IF (ch1 <> 'A')
+START IF
+    PRINT: "ch1<>'A': TRUE" & $
+END IF
+
+%% -------------------------------------------------------
+%% SECTION 14: FLOAT COMPARISON (all 6 relational operators)
+%% -------------------------------------------------------
+PRINT: "=== Section 14: FLOAT Comparison ===" & $
+IF (f1 > f2)
+START IF
+    PRINT: "3.5>2.0: TRUE" & $
+END IF
+IF (f1 >= 3.5)
+START IF
+    PRINT: "3.5>=3.5: TRUE" & $
+END IF
+IF (f2 < f1)
+START IF
+    PRINT: "2.0<3.5: TRUE" & $
+END IF
+IF (f2 <= 2.0)
+START IF
+    PRINT: "2.0<=2.0: TRUE" & $
+END IF
+IF (f2 == 2.0)
+START IF
+    PRINT: "2.0==2.0: TRUE" & $
+END IF
+IF (f1 <> f2)
+START IF
+    PRINT: "3.5<>2.0: TRUE" & $
+END IF
+
+%% -------------------------------------------------------
+%% SECTION 15: CHAINED ASSIGNMENT
+%% -------------------------------------------------------
+PRINT: "=== Section 15: Chained Assignment ===" & $
+x = y = z = 99
+PRINT: "x=y=z=99: x=" & x & " y=" & y & " z=" & z & $
+
+%% -------------------------------------------------------
+%% SECTION 16: FLOAT ACCUMULATION IN LOOP
+%% -------------------------------------------------------
+PRINT: "=== Section 16: FLOAT Accumulation ===" & $
+f3 = 0.0
+FOR (i=1, i<=4, i=i+1)
+START FOR
+    f3 = f3 + 0.5
+END FOR
+PRINT: "4*0.5=" & f3 & $
+
+%% -------------------------------------------------------
+%% SECTION 17: COMPLEX NESTING (sieve-like primality 2..20)
+%% -------------------------------------------------------
+PRINT: "=== Section 17: Complex Nesting ===" & $
+count = 0
+FOR (i=2, i<=20, i=i+1)
+START FOR
+    IF (i%2 == 0 AND i <> 2)
+    START IF
+        flag = "FALSE"
+    END IF
+    ELSE IF (i%3 == 0 AND i <> 3)
+    START IF
+        flag = "FALSE"
+    END IF
+    ELSE
+    START IF
+        flag = "TRUE"
+    END IF
+    IF (flag == "TRUE")
+    START IF
+        PRINT: i & " "
+        count = count + 1
+    END IF
+END FOR
+PRINT: $
+PRINT: "primes 2..20: count=" & count & $
+
+%% -------------------------------------------------------
+%% SECTION 18: MULTI-VARIABLE DECLARE
+%% -------------------------------------------------------
+PRINT: "=== Section 18: Multi-var Declare ===" & $
+PRINT: "n1=" & n1 & " n2=" & n2 & " n3=" & n3 & $
+
+END SCRIPT

@@ -1,0 +1,13 @@
+SCRIPT AREA
+START SCRIPT
+
+DECLARE INT num = 0
+DECLARE BOOL bval = "FALSE"
+DECLARE CHAR cval = 'x'
+
+SCAN: num, bval, cval
+PRINT: "Read INT: " & num & $
+PRINT: "Read BOOL: " & bval & $
+PRINT: "Read CHAR: " & cval & $
+
+END SCRIPT
