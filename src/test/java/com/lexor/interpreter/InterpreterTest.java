@@ -905,6 +905,126 @@ class InterpreterTest {
                 """).trim(), "BUG-5/6: assign() in child scope not reaching outer variable");
         }
 
+        // ── SWITCH / CASE / DEFAULT ──────────────────────────────────────────
+
+        @Test
+        @DisplayName("SWITCH: first case triggered")
+        void switchFirstCase() {
+            assertEquals("one", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT n=1
+                SWITCH (n)
+                START SWITCH
+                CASE 1:
+                PRINT: "one"
+                CASE 2:
+                PRINT: "two"
+                DEFAULT:
+                PRINT: "other"
+                END SWITCH
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("SWITCH: nth case triggered")
+        void switchNthCase() {
+            assertEquals("three", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT n=3
+                SWITCH (n)
+                START SWITCH
+                CASE 1:
+                PRINT: "one"
+                CASE 2:
+                PRINT: "two"
+                CASE 3:
+                PRINT: "three"
+                DEFAULT:
+                PRINT: "other"
+                END SWITCH
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("SWITCH: default triggered when no case matches")
+        void switchDefaultCase() {
+            assertEquals("other", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT n=9
+                SWITCH (n)
+                START SWITCH
+                CASE 1:
+                PRINT: "one"
+                CASE 2:
+                PRINT: "two"
+                DEFAULT:
+                PRINT: "other"
+                END SWITCH
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("SWITCH: no default and no match produces no output")
+        void switchNoMatchNoDefault() {
+            assertEquals("", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT n=9
+                SWITCH (n)
+                START SWITCH
+                CASE 1:
+                PRINT: "one"
+                END SWITCH
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("SWITCH: CHAR subject matches by type and value")
+        void switchCharSubject() {
+            assertEquals("Good", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE CHAR grade='B'
+                SWITCH (grade)
+                START SWITCH
+                CASE 'A':
+                PRINT: "Excellent"
+                CASE 'B':
+                PRINT: "Good"
+                DEFAULT:
+                PRINT: "Keep trying"
+                END SWITCH
+                END SCRIPT
+                """).trim());
+        }
+
+        @Test
+        @DisplayName("SWITCH: only the first matching case runs (auto-break)")
+        void switchAutoBreak() {
+            assertEquals("two", run("""
+                SCRIPT AREA
+                START SCRIPT
+                DECLARE INT n=2
+                SWITCH (n)
+                START SWITCH
+                CASE 1:
+                PRINT: "one"
+                CASE 2:
+                PRINT: "two"
+                CASE 3:
+                PRINT: "three"
+                END SWITCH
+                END SCRIPT
+                """).trim());
+        }
+
         // ── FOR loop — BUG-5/6 ───────────────────────────────────────────────
 
         @Test

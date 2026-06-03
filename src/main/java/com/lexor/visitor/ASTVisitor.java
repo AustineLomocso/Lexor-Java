@@ -130,6 +130,13 @@ public interface ASTVisitor<T> {
 //
     T visitRepeat(RepeatNode n);
     T visitIncrement(IncrementNode n);
+
+    T visitSwitch(SwitchNode n);
+//      - Called for SWITCH / CASE / DEFAULT multi-way branches.
+//      - SemanticAnalyzer: verify each CASE value's type matches the subject's
+//        type, then recursively validate every case body and the default body.
+//      - Interpreter: evaluate the subject once; run the first CASE whose value
+//        equals the subject (auto-break); otherwise run DEFAULT if present.
 //      - Called for REPEAT WHEN loops (do-while equivalent).
 //      - SemanticAnalyzer: verify the condition expression is BOOL,
 //        recursively validate the body.

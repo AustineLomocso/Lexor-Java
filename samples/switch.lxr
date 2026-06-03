@@ -1,0 +1,40 @@
+SCRIPT AREA
+START SCRIPT
+DECLARE INT day = 3
+DECLARE CHAR grade = 'B'
+
+%% --- nth case triggered: day=3 lands on the 3rd CASE ---
+SWITCH (day)
+START SWITCH
+    CASE 1:
+        PRINT: "Monday" & $
+    CASE 2:
+        PRINT: "Tuesday" & $
+    CASE 3:
+        PRINT: "Wednesday" & $
+    DEFAULT:
+        PRINT: "Unknown day" & $
+END SWITCH
+
+%% --- first case triggered ---
+SWITCH (grade)
+START SWITCH
+    CASE 'A':
+        PRINT: "Excellent" & $
+    CASE 'B':
+        PRINT: "Good" & $
+    DEFAULT:
+        PRINT: "Keep trying" & $
+END SWITCH
+
+%% --- default triggered: 99 matches no CASE ---
+SWITCH (99)
+START SWITCH
+    CASE 1:
+        PRINT: "one" & $
+    CASE 2:
+        PRINT: "two" & $
+    DEFAULT:
+        PRINT: "other" & $
+END SWITCH
+END SCRIPT

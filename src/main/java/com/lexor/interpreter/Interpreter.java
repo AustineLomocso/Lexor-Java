@@ -342,6 +342,20 @@ public class Interpreter implements ASTVisitor<LexorValue> {
         if (n.getElseBlock() != null) executeBlock(n.getElseBlock());
         return null;
     }
+
+    @Override
+    public LexorValue visitSwitch(SwitchNode n) {
+        LexorValue subject = evaluate(n.getSubject());
+        if (subject == null) return null;
+        for (SwitchNode.CaseClause c : n.getCases()) {
+            if (subject.equals(evaluate(c.getValue()))) {   // auto-break: first match only
+                executeBlock(c.getBody());
+                return null;
+            }
+        }
+        if (n.getDefaultBlock() != null) executeBlock(n.getDefaultBlock());
+        return null;
+    }
 // TODO: @Override public LexorValue visitFor(ForNode n)
 //
 //   Executes the FOR loop: init once, then body + update while condition holds.

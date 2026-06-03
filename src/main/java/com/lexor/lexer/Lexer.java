@@ -140,6 +140,9 @@ public class Lexer {
         Map.entry("FOR", TokenType.KEYWORD_FOR),
         Map.entry("REPEAT", TokenType.KEYWORD_REPEAT),
         Map.entry("WHEN", TokenType.KEYWORD_WHEN),
+        Map.entry("SWITCH", TokenType.KEYWORD_SWITCH),
+        Map.entry("CASE", TokenType.KEYWORD_CASE),
+        Map.entry("DEFAULT", TokenType.KEYWORD_DEFAULT),
 
         Map.entry("INT", TokenType.TYPE_INT),
         Map.entry("FLOAT", TokenType.TYPE_FLOAT),

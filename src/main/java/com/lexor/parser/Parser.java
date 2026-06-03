@@ -572,6 +572,8 @@ public class Parser {
             return parseFor();
         } else if (check(TokenType.KEYWORD_REPEAT)) {
             return parseRepeat();
+        } else if (check(TokenType.KEYWORD_SWITCH)) {
+            return parseSwitch();
         } else if (check(TokenType.IDENTIFIER)) {
             return parseAssignment();
         } else {
@@ -842,6 +844,78 @@ public class Parser {
             }
         }
         return new IfNode(line, condition, thenBlock, elseIfClauses, elseBlocks);
+    }
+
+    // -------------------------------------------------------------------------
+    // parseSwitch()  —  SWITCH (<subject>) START SWITCH <cases> END SWITCH
+    // -------------------------------------------------------------------------
+    // Multi-way branch. Colon syntax, auto-break: the first CASE whose value
+    // equals the subject runs, then control leaves the switch. DEFAULT is
+    // optional and runs only when no CASE matched. A CASE body runs from its
+    // ':' until the next CASE, DEFAULT, or END SWITCH (see parseCaseBody()).
+    //
+    //   SWITCH (<expr>)
+    //   START SWITCH
+    //       CASE <expr>:
+    //           <statements>
+    //       DEFAULT:
+    //           <statements>
+    //   END SWITCH
+    //
+    private SwitchNode parseSwitch() {
+        Token switchToken = consume(TokenType.KEYWORD_SWITCH, "SWITCH");
+        int line = switchToken.getLine();
+        consume(TokenType.LPAREN, "'(' after SWITCH");
+        ASTNode subject = parseExpression();
+        consume(TokenType.RPAREN, "')' after SWITCH subject");
+        skipNewlines();
+
+        consume(TokenType.KEYWORD_START, "START");
+        consume(TokenType.KEYWORD_SWITCH, "SWITCH after START");
+        skipNewlines();
+
+        List<SwitchNode.CaseClause> cases = new ArrayList<>();
+        List<ASTNode> defaultBlock = null;
+        while (!check(TokenType.KEYWORD_END) && !isAtEnd()) {
+            skipNewlines();
+            if (check(TokenType.KEYWORD_CASE)) {
+                advance();
+                ASTNode value = parseExpression();
+                consume(TokenType.COLON, "':' after CASE value");
+                List<ASTNode> body = parseCaseBody();
+                cases.add(new SwitchNode.CaseClause(value, body));
+            } else if (check(TokenType.KEYWORD_DEFAULT)) {
+                advance();
+                consume(TokenType.COLON, "':' after DEFAULT");
+                defaultBlock = parseCaseBody();
+            } else if (check(TokenType.KEYWORD_END)) {
+                break;
+            } else {
+                throw error("Expected CASE or DEFAULT inside SWITCH");
+            }
+            skipNewlines();
+        }
+
+        consume(TokenType.KEYWORD_END, "END after SWITCH body");
+        consume(TokenType.KEYWORD_SWITCH, "SWITCH after END");
+        skipNewlines();
+
+        logger.debug("Parsed SWITCH at line {} with {} cases (hasDefault={})",
+                line, cases.size(), defaultBlock != null);
+        return new SwitchNode(line, subject, cases, defaultBlock);
+    }
+
+    // Collects the statements of a single CASE/DEFAULT body: everything from the
+    // ':' up to (but not consuming) the next CASE, DEFAULT, or END boundary.
+    private List<ASTNode> parseCaseBody() {
+        List<ASTNode> stmts = new ArrayList<>();
+        skipNewlines();
+        while (!check(TokenType.KEYWORD_CASE) && !check(TokenType.KEYWORD_DEFAULT)
+                && !check(TokenType.KEYWORD_END) && !isAtEnd()) {
+            stmts.add(parseStatement());
+            skipNewlines();
+        }
+        return stmts;
     }
 
     // -------------------------------------------------------------------------

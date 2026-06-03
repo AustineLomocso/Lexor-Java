@@ -356,6 +356,24 @@ public class SemanticAnalyzer implements ASTVisitor<String> {
         }
         return null;
     }
+
+    @Override
+    public String visitSwitch(SwitchNode switchNode) {
+        String subjectType = switchNode.getSubject().accept(this);
+        for (SwitchNode.CaseClause clause : switchNode.getCases()) {
+            String caseType = clause.getValue().accept(this);
+            if (!subjectType.equals(caseType)) {
+                throw new SemanticException("CASE value type " + caseType
+                        + " does not match SWITCH subject type " + subjectType
+                        + " at line " + switchNode.getLine());
+            }
+            for (ASTNode stmt : clause.getBody()) stmt.accept(this);
+        }
+        if (switchNode.getDefaultBlock() != null) {
+            for (ASTNode stmt : switchNode.getDefaultBlock()) stmt.accept(this);
+        }
+        return null;
+    }
 // TODO: @Override public String visitFor(ForNode n)
 //
 //   Validates init, condition (must be BOOL), update, and body.

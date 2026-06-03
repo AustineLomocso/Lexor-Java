@@ -14,6 +14,9 @@ public enum TokenType {
     KEYWORD_REPEAT,
     KEYWORD_WHEN,
     KEYWORD_AREA,
+    KEYWORD_SWITCH,
+    KEYWORD_CASE,
+    KEYWORD_DEFAULT,
 
     // Types
     TYPE_INT,
